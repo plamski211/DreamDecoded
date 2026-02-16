@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { TrendingUp, Repeat, FileText, Link2, AlertCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
 import Svg, { Circle } from 'react-native-svg';
-import { subDays, isAfter, format } from 'date-fns';
+import { subDays, isAfter, format, isToday, isYesterday } from 'date-fns';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, lineHeight, SCREEN_PADDING } from '@/lib/theme';
 import { useAppStore } from '@/lib/store';
@@ -140,25 +140,36 @@ export default function InsightsScreen() {
             <TrendingUp size={18} color={c.accent} strokeWidth={1.5} />
             <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Mood Trends</Text>
           </View>
-          <View style={[styles.moodChart, { backgroundColor: c.surface, borderColor: c.border }]}>
-            {totalDreams === 0 ? (
+          {totalDreams === 0 ? (
+            <View style={[styles.moodChartEmpty, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Record dreams to see your mood trends over time</Text>
-            ) : (
-              <View style={styles.moodBars}>
-                {dreams.slice(0, 7).map((dream) => {
-                  const primaryMood = dream.moods[0];
-                  const confidence = primaryMood?.confidence ?? 0.3;
-                  const moodColor = primaryMood?.gradient[0] ?? c.accent;
-                  const barHeight = 8 + confidence * 44;
-                  return (
-                    <Pressable key={dream.id} onPress={() => router.push(`/dream/${dream.id}`)} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
-                      <View style={[styles.moodBar, { height: barHeight, backgroundColor: moodColor }]} />
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+            </View>
+          ) : (
+            <View style={styles.moodTrendList}>
+              {dreams.slice(0, 7).map((dream, i) => {
+                const primaryMood = dream.moods[0];
+                const confidence = primaryMood?.confidence ?? 0.3;
+                const moodColor = primaryMood?.gradient[0] ?? c.accent;
+                const moodName = primaryMood?.mood ?? 'neutral';
+                const moodEmoji = primaryMood?.emoji ?? '';
+                const date = new Date(dream.created_at);
+                const dateLabel = isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'EEE');
+                const barWidth = Math.max(0.2, confidence);
+                return (
+                  <Pressable key={dream.id} onPress={() => router.push(`/dream/${dream.id}`)} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
+                    <View style={[styles.moodTrendRow, i < Math.min(dreams.length, 7) - 1 && [styles.moodTrendRowBorder, { borderBottomColor: c.borderSubtle }]]}>
+                      <Text style={[styles.moodTrendDate, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>{dateLabel}</Text>
+                      <Text style={styles.moodTrendEmoji}>{moodEmoji}</Text>
+                      <View style={styles.moodTrendBarTrack}>
+                        <View style={[styles.moodTrendBarFill, { width: `${barWidth * 100}%`, backgroundColor: moodColor }]} />
+                      </View>
+                      <Text style={[styles.moodTrendLabel, { color: c.textSecondary, fontFamily: theme.fonts.body }]} numberOfLines={1}>{moodName}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </FadeInView>
 
         {/* Recurring Symbols */}
@@ -246,9 +257,15 @@ const styles = StyleSheet.create({
   section: { marginBottom: spacing.lg, gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sectionTitle: { fontSize: fs.subhead },
-  moodChart: { height: 80, borderRadius: radius.md, borderWidth: 1, padding: spacing.md, justifyContent: 'flex-end' },
-  moodBars: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, flex: 1 },
-  moodBar: { flex: 1, borderRadius: radius.sm, minHeight: 8 },
+  moodChartEmpty: { borderRadius: radius.md, borderWidth: 1, padding: spacing.lg },
+  moodTrendList: { gap: 0 },
+  moodTrendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm + 2, gap: spacing.sm },
+  moodTrendRowBorder: { borderBottomWidth: 1 },
+  moodTrendDate: { width: 56, fontSize: fs.tiny },
+  moodTrendEmoji: { fontSize: 18, width: 24, textAlign: 'center' },
+  moodTrendBarTrack: { flex: 1, height: 8, borderRadius: radius.sm, overflow: 'hidden' },
+  moodTrendBarFill: { height: '100%', borderRadius: radius.sm },
+  moodTrendLabel: { width: 64, fontSize: fs.tiny, textTransform: 'capitalize' },
   symbolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   connectionCard: { borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm },
   connectionSymbol: { fontSize: fs.caption },
