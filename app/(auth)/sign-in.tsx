@@ -15,12 +15,16 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const showError = (title: string, msg: string) => {
+    if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
+  };
+
   const handleSignIn = async () => {
-    if (!email || !password) { Alert.alert('Error', 'Please fill in all fields'); return; }
+    if (!email || !password) { showError('Error', 'Please fill in all fields'); return; }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) Alert.alert('Sign In Failed', error.message);
+    if (error) showError('Sign In Failed', error.message);
   };
 
   return (

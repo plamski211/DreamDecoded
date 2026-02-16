@@ -58,6 +58,7 @@ export default function ProfileScreen() {
   const dreams = useAppStore((s) => s.dreams);
   const setSession = useAppStore((s) => s.setSession);
   const setUser = useAppStore((s) => s.setUser);
+  const setDreams = useAppStore((s) => s.setDreams);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
@@ -80,7 +81,7 @@ export default function ProfileScreen() {
       message: 'Are you sure you want to sign out?',
       buttons: [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: async () => { try { await supabase.auth.signOut(); } catch {} setSession(null); setUser(null); } },
+        { text: 'Sign Out', style: 'destructive', onPress: async () => { try { await supabase.auth.signOut(); } catch {} setSession(null); setUser(null); setDreams([]); } },
       ],
     });
   };

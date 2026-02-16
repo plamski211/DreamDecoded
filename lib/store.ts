@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Dream, User } from '@/types';
 import { saveDream, deleteDream } from '@/lib/storage';
+import { hasCredentials, upsertDream, deleteDreamRemote } from '@/lib/supabase';
 
 interface AppState {
   // Auth
@@ -39,20 +40,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  // Auth — default local user so the app works without Supabase sign-in
-  user: {
-    id: 'local',
-    email: '',
-    name: 'Dreamer',
-    created_at: new Date().toISOString(),
-    streak_current: 0,
-    streak_longest: 0,
-    last_dream_date: null,
-    subscription_tier: 'premium',
-    interpretation_style: 'mixed',
-    reminder_time: '08:00',
-    onboarding_completed: true,
-  },
+  // Auth — no default user; requires sign-in
+  user: null,
   session: null,
   isAuthLoading: true,
   setUser: (user) => set({ user }),
@@ -78,6 +67,7 @@ export const useAppStore = create<AppState>((set) => ({
   addDream: (dream) => {
     set((state) => ({ dreams: [dream, ...state.dreams] }));
     saveDream(dream).catch(() => {});
+    if (hasCredentials) upsertDream(dream).catch(() => {});
   },
   updateDream: (id, updates) => {
     set((state) => {
@@ -85,13 +75,17 @@ export const useAppStore = create<AppState>((set) => ({
         d.id === id ? { ...d, ...updates } : d
       );
       const dream = updated.find((d) => d.id === id);
-      if (dream) saveDream(dream).catch(() => {});
+      if (dream) {
+        saveDream(dream).catch(() => {});
+        if (hasCredentials) upsertDream(dream).catch(() => {});
+      }
       return { dreams: updated };
     });
   },
   removeDream: (id) => {
     set((state) => ({ dreams: state.dreams.filter((d) => d.id !== id) }));
     deleteDream(id).catch(() => {});
+    if (hasCredentials) deleteDreamRemote(id).catch(() => {});
   },
 
   // Subscription

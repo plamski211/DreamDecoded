@@ -16,13 +16,17 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const showError = (title: string, msg: string) => {
+    if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
+  };
+
   const handleSignUp = async () => {
-    if (!name || !email || !password) { Alert.alert('Error', 'Please fill in all fields'); return; }
-    if (password.length < 8) { Alert.alert('Error', 'Password must be at least 8 characters'); return; }
+    if (!name || !email || !password) { showError('Error', 'Please fill in all fields'); return; }
+    if (password.length < 8) { showError('Error', 'Password must be at least 8 characters'); return; }
     setLoading(true);
     const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
     setLoading(false);
-    if (error) Alert.alert('Sign Up Failed', error.message);
+    if (error) showError('Sign Up Failed', error.message);
   };
 
   return (

@@ -15,7 +15,7 @@ import {
 } from '@expo-google-fonts/eb-garamond';
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono';
 import * as SplashScreen from 'expo-splash-screen';
-import { supabase, hasCredentials } from '@/lib/supabase';
+import { supabase, hasCredentials, fetchDreams } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { ThemeProvider, useTheme } from '@/lib/ThemeContext';
 import { initDB, loadDreams, loadAllPreferences } from '@/lib/storage';
@@ -36,8 +36,8 @@ function useProtectedRoute() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
 
-    if (!session) {
-      if (inAuthGroup) router.replace('/(tabs)');
+    if (!session && !inAuthGroup) {
+      router.replace('/(auth)/welcome');
     } else if (session && user && !user.onboarding_completed && !inOnboarding) {
       router.replace('/onboarding');
     } else if (session && inAuthGroup) {
@@ -60,12 +60,16 @@ function RootLayoutInner() {
     }
     let subscription: { unsubscribe: () => void } | undefined;
     try {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session) {
           setSession({ access_token: session.access_token });
-          supabase.from('profiles').select('*').eq('id', session.user.id).single()
-            .then(({ data }) => { if (data) setUser(data); setAuthLoading(false); })
-            .catch(() => setAuthLoading(false));
+          try {
+            const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            if (data) setUser(data);
+            const dreams = await fetchDreams(session.user.id);
+            if (dreams.length > 0) setDreams(dreams);
+          } catch {}
+          setAuthLoading(false);
         } else {
           setAuthLoading(false);
         }
@@ -74,8 +78,12 @@ function RootLayoutInner() {
       const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session) {
           setSession({ access_token: session.access_token });
-          const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-          if (data) setUser(data);
+          try {
+            const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            if (data) setUser(data);
+            const dreams = await fetchDreams(session.user.id);
+            if (dreams.length > 0) setDreams(dreams);
+          } catch {}
         } else {
           setSession(null);
           setUser(null);

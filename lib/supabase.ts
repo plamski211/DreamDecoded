@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import type { Dream } from '@/types';
 
 const WebStorageAdapter = {
   getItem: (key: string) => {
@@ -41,8 +42,8 @@ export const supabase = createClient(
   {
     auth: {
       storage: ExpoSecureStoreAdapter,
-      autoRefreshToken: false,
-      persistSession: false,
+      autoRefreshToken: true,
+      persistSession: true,
       detectSessionInUrl: false,
       flowType: 'implicit',
       // Explicitly provide a noop lock to prevent the navigator lock
@@ -54,3 +55,30 @@ export const supabase = createClient(
     },
   }
 );
+
+export async function fetchDreams(userId: string): Promise<Dream[]> {
+  const { data, error } = await supabase
+    .from('dreams')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Dream[];
+}
+
+export async function upsertDream(dream: Dream): Promise<void> {
+  // Strip art_style which has no DB column
+  const { art_style, ...row } = dream as Dream & { art_style?: string };
+  const { error } = await supabase.from('dreams').upsert(row);
+  if (error) throw error;
+}
+
+export async function deleteDreamRemote(id: string): Promise<void> {
+  const { error } = await supabase.from('dreams').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateProfile(id: string, updates: Record<string, any>): Promise<void> {
+  const { error } = await supabase.from('profiles').update(updates).eq('id', id);
+  if (error) throw error;
+}

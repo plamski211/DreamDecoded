@@ -10,6 +10,7 @@ import { processDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
 import { sendDreamProcessedNotification } from '@/lib/notifications';
 import { loadPreference } from '@/lib/storage';
+import { hasCredentials, updateProfile } from '@/lib/supabase';
 import MorningCircle from '@/components/MorningCircle';
 import DreamCard from '@/components/DreamCard';
 
@@ -49,7 +50,7 @@ export default function HomeScreen() {
       setProcessing(true);
       try {
         const dream = await processDream(result.uri, userId, style, recurringSymbols, true, voiceLanguage ?? undefined);
-        const fullDream = { id: Date.now().toString(), created_at: new Date().toISOString(), audio_duration_seconds: result.duration, ...dream } as any;
+        const fullDream = { id: crypto.randomUUID(), created_at: new Date().toISOString(), audio_duration_seconds: result.duration, ...dream } as any;
         addDream(fullDream);
         setDecodedDream(fullDream);
 
@@ -60,7 +61,9 @@ export default function HomeScreen() {
           let newStreak = user.streak_current;
           if (lastDate === yesterday) { newStreak += 1; } else if (lastDate !== today) { newStreak = 1; }
           const newLongest = Math.max(user.streak_longest, newStreak);
-          useAppStore.getState().setUser({ ...user, streak_current: newStreak, streak_longest: newLongest, last_dream_date: new Date().toISOString() });
+          const streakUpdates = { streak_current: newStreak, streak_longest: newLongest, last_dream_date: new Date().toISOString() };
+          useAppStore.getState().setUser({ ...user, ...streakUpdates });
+          if (hasCredentials) updateProfile(user.id, streakUpdates).catch(() => {});
         }
 
         if (fullDream.title && Platform.OS !== 'web') {
