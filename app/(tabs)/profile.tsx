@@ -4,9 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, Brain, Clock, Globe, Download, Shield, CreditCard, HelpCircle, Info, ChevronRight, LogOut, Flame, Trophy, Moon, Check } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
+import { supabase, hasCredentials, updateProfile } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
-import { savePreference, loadPreference } from '@/lib/storage';
 import { requestNotificationPermission, scheduleMorningReminder, cancelMorningReminder, getNotificationStatus } from '@/lib/notifications';
 import { useTheme } from '@/lib/ThemeContext';
 import { themes, spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
@@ -65,11 +64,10 @@ export default function ProfileScreen() {
   const showAlert = useCallback((config: AlertConfig) => { setAlertConfig(config); setAlertVisible(true); }, []);
 
   const [notifStatus, setNotifStatus] = useState<string>('');
-  const [voiceLanguage, setVoiceLanguage] = useState<string>('English');
+  const voiceLanguage = capitalize(user?.voice_language || 'english');
 
   useEffect(() => {
     getNotificationStatus().then((status) => setNotifStatus(status === 'granted' ? 'On' : 'Off')).catch(() => setNotifStatus('Off'));
-    loadPreference('voice_language').then((lang) => { if (lang) setVoiceLanguage(capitalize(lang)); }).catch(() => {});
   }, []);
 
   const initials = (user?.name ?? 'D').split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
@@ -101,7 +99,7 @@ export default function ProfileScreen() {
     switch (key) {
       case 'style': {
         const styleOptions = ['Jungian', 'Modern', 'Spiritual', 'Mixed'] as const;
-        showAlert({ title: 'Interpretation Style', message: 'Choose how your dreams are interpreted', buttons: [...styleOptions.map((label) => ({ text: label + (user?.interpretation_style === label.toLowerCase() ? ' (current)' : ''), onPress: () => { const style = label.toLowerCase(); if (user) { setUser({ ...user, interpretation_style: style as any }); savePreference('interpretation_style', style).catch(() => {}); } } })), { text: 'Cancel', style: 'cancel' as const }] });
+        showAlert({ title: 'Interpretation Style', message: 'Choose how your dreams are interpreted', buttons: [...styleOptions.map((label) => ({ text: label + (user?.interpretation_style === label.toLowerCase() ? ' (current)' : ''), onPress: () => { const style = label.toLowerCase(); if (user) { setUser({ ...user, interpretation_style: style as any }); updateProfile(user.id, { interpretation_style: style }).catch(() => {}); } } })), { text: 'Cancel', style: 'cancel' as const }] });
         break;
       }
       case 'notifications': {
@@ -112,12 +110,12 @@ export default function ProfileScreen() {
       case 'reminder': {
         if (Platform.OS === 'web') { showAlert({ title: 'Morning Reminder', message: 'Push notifications for reminders are available on iOS and Android.', buttons: [{ text: 'OK' }] }); return; }
         const times = [{ label: '6:00 AM', hour: 6, minute: 0 }, { label: '7:00 AM', hour: 7, minute: 0 }, { label: '8:00 AM', hour: 8, minute: 0 }, { label: '9:00 AM', hour: 9, minute: 0 }];
-        showAlert({ title: 'Morning Reminder', message: `Current: ${user?.reminder_time ? formatReminderTime(user.reminder_time) : 'Not set'}`, buttons: [...times.map(({ label, hour, minute }) => ({ text: label, onPress: async () => { try { const granted = await requestNotificationPermission(); if (!granted) { showAlert({ title: 'Permission Required', message: 'Enable notifications to set a reminder.', buttons: [{ text: 'OK' }] }); return; } await scheduleMorningReminder(hour, minute); const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`; if (user) { setUser({ ...user, reminder_time: timeStr }); savePreference('reminder_time', timeStr).catch(() => {}); } } catch { showAlert({ title: 'Error', message: 'Could not schedule reminder.', buttons: [{ text: 'OK' }] }); } } })), { text: 'Turn Off', style: 'destructive' as const, onPress: async () => { await cancelMorningReminder(); if (user) setUser({ ...user, reminder_time: '' }); savePreference('reminder_time', '').catch(() => {}); } }, { text: 'Cancel', style: 'cancel' as const }] });
+        showAlert({ title: 'Morning Reminder', message: `Current: ${user?.reminder_time ? formatReminderTime(user.reminder_time) : 'Not set'}`, buttons: [...times.map(({ label, hour, minute }) => ({ text: label, onPress: async () => { try { const granted = await requestNotificationPermission(); if (!granted) { showAlert({ title: 'Permission Required', message: 'Enable notifications to set a reminder.', buttons: [{ text: 'OK' }] }); return; } await scheduleMorningReminder(hour, minute); const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`; if (user) { setUser({ ...user, reminder_time: timeStr }); updateProfile(user.id, { reminder_time: timeStr }).catch(() => {}); } } catch { showAlert({ title: 'Error', message: 'Could not schedule reminder.', buttons: [{ text: 'OK' }] }); } } })), { text: 'Turn Off', style: 'destructive' as const, onPress: async () => { await cancelMorningReminder(); if (user) { setUser({ ...user, reminder_time: '' }); updateProfile(user.id, { reminder_time: '' }).catch(() => {}); } } }, { text: 'Cancel', style: 'cancel' as const }] });
         break;
       }
       case 'language': {
         const languages = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Japanese', 'Korean', 'Chinese'];
-        showAlert({ title: 'Voice Language', message: `Current: ${voiceLanguage}`, buttons: [...languages.map((lang) => ({ text: lang + (voiceLanguage === lang ? ' (current)' : ''), onPress: () => { setVoiceLanguage(lang); savePreference('voice_language', lang.toLowerCase()).catch(() => {}); } })), { text: 'Cancel', style: 'cancel' as const }] });
+        showAlert({ title: 'Voice Language', message: `Current: ${voiceLanguage}`, buttons: [...languages.map((lang) => ({ text: lang + (voiceLanguage === lang ? ' (current)' : ''), onPress: () => { if (user) { setUser({ ...user, voice_language: lang.toLowerCase() }); updateProfile(user.id, { voice_language: lang.toLowerCase() }).catch(() => {}); } } })), { text: 'Cancel', style: 'cancel' as const }] });
         break;
       }
       case 'export': {
@@ -135,7 +133,7 @@ export default function ProfileScreen() {
       case 'help': { showAlert({ title: 'Help & Support', message: 'Need help with DreamDecode?\n\nTips:\n- Speak clearly when recording dreams\n- Record as soon as you wake up\n- The more details, the better the analysis', buttons: [{ text: 'Cancel', style: 'cancel' as const }, { text: 'Send Feedback', onPress: () => { Linking.openURL('mailto:support@dreamdecode.app?subject=DreamDecode%20Feedback').catch(() => {}); } }] }); break; }
       case 'about': { showAlert({ title: 'About DreamDecode', message: 'DreamDecode v1.0.0\n\nRecord, analyze, and understand your dreams using AI.\n\nBuilt with:\n- Expo & React Native\n- Google Gemini AI\n- SQLite for local storage\n\nMade with love for dreamers everywhere.', buttons: [{ text: 'OK' }] }); break; }
     }
-  }, [user, dreams, setUser, voiceLanguage, notifStatus, showAlert]);
+  }, [user, dreams, setUser, notifStatus, showAlert]);
 
   const renderSettingsGroup = (
     title: string,

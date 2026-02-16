@@ -18,7 +18,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { supabase, hasCredentials, fetchDreams } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { ThemeProvider, useTheme } from '@/lib/ThemeContext';
-import { initDB, loadDreams, loadAllPreferences } from '@/lib/storage';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -92,28 +91,6 @@ function RootLayoutInner() {
       subscription = data.subscription;
     } catch { setAuthLoading(false); }
     return () => subscription?.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        await initDB();
-        const dreams = await loadDreams();
-        if (dreams.length > 0) setDreams(dreams);
-        const prefs = await loadAllPreferences();
-        if (prefs.interpretation_style || prefs.user_name || prefs.voice_language) {
-          const currentUser = useAppStore.getState().user;
-          if (currentUser) {
-            useAppStore.getState().setUser({
-              ...currentUser,
-              interpretation_style: (prefs.interpretation_style as any) ?? currentUser.interpretation_style,
-              name: prefs.user_name ?? currentUser.name,
-              reminder_time: prefs.reminder_time ?? currentUser.reminder_time,
-            });
-          }
-        }
-      } catch {}
-    })();
   }, []);
 
   useProtectedRoute();

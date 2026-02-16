@@ -9,6 +9,7 @@ export interface User {
   subscription_tier: 'free' | 'premium';
   interpretation_style: 'jungian' | 'modern' | 'spiritual' | 'mixed';
   reminder_time: string;
+  voice_language: string;
   onboarding_completed: boolean;
 }
 

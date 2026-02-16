@@ -7,7 +7,6 @@ import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
 import { askDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
-import { loadPreference } from '@/lib/storage';
 import AskBubble, { TypingIndicator } from '@/components/AskBubble';
 import type { ConversationMessage } from '@/types';
 
@@ -24,6 +23,7 @@ export default function AskDreamScreen() {
   const { theme } = useTheme();
   const c = theme.colors;
   const dreams = useAppStore((s) => s.dreams);
+  const user = useAppStore((s) => s.user);
   const dream = dreams.find((d) => d.id === id);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [input, setInput] = useState('');
@@ -38,8 +38,7 @@ export default function AskDreamScreen() {
     setIsTyping(true);
     try {
       const history = [...messages, userMsg].map((m) => ({ role: m.role, content: m.content }));
-      let voiceLanguage: string | undefined;
-      try { voiceLanguage = (await loadPreference('voice_language')) ?? undefined; } catch {}
+      const voiceLanguage = user?.voice_language || undefined;
       const response = await askDream(id, text.trim(), history, { title: dream?.title, transcription: dream?.transcription, summary: dream?.summary, interpretation: dream?.interpretation }, voiceLanguage);
       const aiMsg: ConversationMessage = { role: 'assistant', content: response, timestamp: new Date().toISOString() };
       setMessages((prev) => [...prev, aiMsg]);

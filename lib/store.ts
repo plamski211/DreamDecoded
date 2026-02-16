@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { Dream, User } from '@/types';
-import { saveDream, deleteDream } from '@/lib/storage';
 import { hasCredentials, upsertDream, deleteDreamRemote } from '@/lib/supabase';
 
 interface AppState {
@@ -66,8 +65,7 @@ export const useAppStore = create<AppState>((set) => ({
   setDreams: (dreams) => set({ dreams }),
   addDream: (dream) => {
     set((state) => ({ dreams: [dream, ...state.dreams] }));
-    saveDream(dream).catch(() => {});
-    if (hasCredentials) upsertDream(dream).catch(() => {});
+    upsertDream(dream).catch((e) => console.error('[supabase] upsertDream failed:', e));
   },
   updateDream: (id, updates) => {
     set((state) => {
@@ -76,16 +74,14 @@ export const useAppStore = create<AppState>((set) => ({
       );
       const dream = updated.find((d) => d.id === id);
       if (dream) {
-        saveDream(dream).catch(() => {});
-        if (hasCredentials) upsertDream(dream).catch(() => {});
+        upsertDream(dream).catch((e) => console.error('[supabase] upsertDream failed:', e));
       }
       return { dreams: updated };
     });
   },
   removeDream: (id) => {
     set((state) => ({ dreams: state.dreams.filter((d) => d.id !== id) }));
-    deleteDream(id).catch(() => {});
-    if (hasCredentials) deleteDreamRemote(id).catch(() => {});
+    deleteDreamRemote(id).catch((e) => console.error('[supabase] deleteDreamRemote failed:', e));
   },
 
   // Subscription

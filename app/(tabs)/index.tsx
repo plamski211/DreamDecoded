@@ -9,7 +9,6 @@ import { getGreeting } from '@/lib/dreamAnalysis';
 import { processDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
 import { sendDreamProcessedNotification } from '@/lib/notifications';
-import { loadPreference } from '@/lib/storage';
 import { hasCredentials, updateProfile } from '@/lib/supabase';
 import MorningCircle from '@/components/MorningCircle';
 import DreamCard from '@/components/DreamCard';
@@ -44,12 +43,11 @@ export default function HomeScreen() {
         .filter(([, count]) => count >= 2)
         .map(([name]) => name);
 
-      let voiceLanguage: string | null = null;
-      try { voiceLanguage = await loadPreference('voice_language'); } catch {}
+      const voiceLanguage = user?.voice_language || undefined;
 
       setProcessing(true);
       try {
-        const dream = await processDream(result.uri, userId, style, recurringSymbols, true, voiceLanguage ?? undefined);
+        const dream = await processDream(result.uri, userId, style, recurringSymbols, true, voiceLanguage);
         const fullDream = { id: crypto.randomUUID(), created_at: new Date().toISOString(), audio_duration_seconds: result.duration, ...dream } as any;
         addDream(fullDream);
         setDecodedDream(fullDream);

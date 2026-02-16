@@ -69,8 +69,13 @@ export async function fetchDreams(userId: string): Promise<Dream[]> {
 export async function upsertDream(dream: Dream): Promise<void> {
   // Strip art_style which has no DB column
   const { art_style, ...row } = dream as Dream & { art_style?: string };
+  console.log('[supabase] upserting dream:', row.id, 'user:', row.user_id);
   const { error } = await supabase.from('dreams').upsert(row);
-  if (error) throw error;
+  if (error) {
+    console.error('[supabase] upsert error:', error.message, error.details, error.hint);
+    throw error;
+  }
+  console.log('[supabase] dream upserted successfully');
 }
 
 export async function deleteDreamRemote(id: string): Promise<void> {
