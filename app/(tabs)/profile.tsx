@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bell, Brain, Clock, Globe, Download, Shield, CreditCard, HelpCircle, Info, ChevronRight, LogOut, Flame, Trophy, Moon, Check } from 'lucide-react-native';
+import { Bell, Brain, Clock, Globe, Download, Shield, CreditCard, HelpCircle, Info, ChevronRight, LogOut, Flame, Trophy, Moon, Check, Heart } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
 import { format } from 'date-fns';
 import { supabase, hasCredentials, updateProfile } from '@/lib/supabase';
@@ -252,6 +252,25 @@ export default function ProfileScreen() {
           {renderSettingsGroup('Support', SUPPORT_SETTINGS)}
         </FadeInView>
 
+        {/* Support the App */}
+        <FadeInView delay={350}>
+          <Pressable
+            onPress={() => Linking.openURL('https://buymeacoffee.com/pngbanks')}
+            style={({ pressed }) => [
+              styles.coffeeBtn,
+              { backgroundColor: c.surface, borderColor: c.border },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Heart size={18} color={c.accent} strokeWidth={1.5} fill={c.accent} />
+            <View style={styles.coffeeBtnContent}>
+              <Text style={[styles.coffeeBtnTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Support DreamDecode</Text>
+              <Text style={[styles.coffeeBtnSub, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Help us launch on the App Store</Text>
+            </View>
+            <ChevronRight size={16} color={c.textTertiary} strokeWidth={1.5} />
+          </Pressable>
+        </FadeInView>
+
         {/* Sign Out */}
         <FadeInView delay={400}>
           <Pressable
@@ -336,6 +355,21 @@ const styles = StyleSheet.create({
   settingBorder: { borderBottomWidth: 1 },
   settingLabel: { flex: 1, fontSize: fs.body },
   settingValue: { fontSize: fs.caption },
+
+  // Coffee
+  coffeeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
+  },
+  coffeeBtnContent: { flex: 1, gap: 2 },
+  coffeeBtnTitle: { fontSize: fs.body },
+  coffeeBtnSub: { fontSize: fs.tiny },
 
   // Sign out
   signOutBtn: {
