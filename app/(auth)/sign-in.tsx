@@ -1,30 +1,53 @@
-import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import AlertModal, { type AlertConfig } from '@/components/AlertModal';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { isGoogleAuthAvailable, useGoogleAuth, signInWithGoogleIdToken } from '@/lib/googleAuth';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { prefillEmail } = useLocalSearchParams<{ prefillEmail?: string }>();
   const { theme } = useTheme();
   const c = theme.colors;
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(prefillEmail ?? '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { response, promptAsync } = useGoogleAuth();
 
-  const showError = (title: string, msg: string) => {
-    if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
+  const showAlert = (title: string, message: string) => {
+    setAlertConfig({ title, message, buttons: [{ text: 'OK', style: 'default' }] });
+    setAlertVisible(true);
   };
 
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.params.id_token;
+      if (idToken) {
+        setGoogleLoading(true);
+        signInWithGoogleIdToken(idToken)
+          .then(({ error }) => {
+            if (error) showAlert('Google Sign-In Failed', error.message);
+          })
+          .finally(() => setGoogleLoading(false));
+      }
+    }
+  }, [response]);
+
   const handleSignIn = async () => {
-    if (!email || !password) { showError('Error', 'Please fill in all fields'); return; }
+    if (!email || !password) { showAlert('Error', 'Please fill in all fields'); return; }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) showError('Sign In Failed', error.message);
+    if (error) showAlert('Sign In Failed', error.message);
   };
 
   return (
@@ -39,11 +62,11 @@ export default function SignInScreen() {
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Email</Text>
-              <TextInput style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]} placeholder="your@email.com" placeholderTextColor={c.textTertiary} keyboardType="email-address" autoCapitalize="none" autoComplete="email" value={email} onChangeText={setEmail} />
+              <TextInput style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]} placeholder="your@email.com" placeholderTextColor={c.textTertiary} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" value={email} onChangeText={setEmail} />
             </View>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Password</Text>
-              <TextInput style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]} placeholder="Your password" placeholderTextColor={c.textTertiary} secureTextEntry autoComplete="password" value={password} onChangeText={setPassword} />
+              <TextInput style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]} placeholder="Your password" placeholderTextColor={c.textTertiary} secureTextEntry autoComplete="password" textContentType="password" value={password} onChangeText={setPassword} />
             </View>
           </View>
           <Pressable onPress={handleSignIn} disabled={loading} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
@@ -51,8 +74,19 @@ export default function SignInScreen() {
               <Text style={[styles.signInBtnText, { color: c.bg, fontFamily: theme.fonts.heading }]}>{loading ? 'Signing in...' : 'Sign In'}</Text>
             </View>
           </Pressable>
+          {isGoogleAuthAvailable && (
+            <>
+              <View style={styles.divider}>
+                <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
+                <Text style={[styles.dividerText, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>or</Text>
+                <View style={[styles.dividerLine, { backgroundColor: c.border }]} />
+              </View>
+              <GoogleSignInButton onPress={() => promptAsync()} loading={googleLoading} />
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
+      <AlertModal visible={alertVisible} config={alertConfig} onDismiss={() => setAlertVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -70,4 +104,7 @@ const styles = StyleSheet.create({
   input: { height: 52, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, fontSize: fs.body },
   signInBtn: { height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
   signInBtnText: { fontSize: fs.body },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: fs.caption },
 });

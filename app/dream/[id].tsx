@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Play, Pause, Share2, Trash2, MessageCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import AlertModal, { type AlertConfig } from '@/components/AlertModal';
 import { format } from 'date-fns';
 import { Audio } from 'expo-av';
 import { useTheme } from '@/lib/ThemeContext';
@@ -23,6 +24,8 @@ export default function DreamDetailScreen() {
   const dream = dreams.find((d) => d.id === id);
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
 
   useEffect(() => { return () => { sound?.unloadAsync(); }; }, [sound]);
 
@@ -39,10 +42,15 @@ export default function DreamDetailScreen() {
   }, [isPlaying, sound, dream]);
 
   const handleDelete = () => {
-    Alert.alert('Delete Dream', 'Are you sure? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => { if (id) removeDream(id); router.back(); } },
-    ]);
+    setAlertConfig({
+      title: 'Delete Dream',
+      message: 'Are you sure? This cannot be undone.',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => { if (id) removeDream(id); router.back(); } },
+      ],
+    });
+    setAlertVisible(true);
   };
 
   if (!dream) {
@@ -115,6 +123,7 @@ export default function DreamDetailScreen() {
           </FadeInView>
         )}
       </ScrollView>
+      <AlertModal visible={alertVisible} config={alertConfig} onDismiss={() => setAlertVisible(false)} />
     </SafeAreaView>
   );
 }

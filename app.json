@@ -18,7 +18,9 @@
       "bundleIdentifier": "com.dreamdecode.app",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "DreamDecode needs your microphone to record your dreams.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -28,7 +30,9 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.dreamdecode.app",
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -51,7 +55,8 @@
           "icon": "./assets/icon.png",
           "color": "#7C5CFC"
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }
