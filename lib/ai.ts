@@ -1,18 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { supabase } from '@/lib/supabase';
 import type { Dream, MoodTag, DreamSymbol } from '@/types';
-
-const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-
-function getModel() {
-  if (!GEMINI_KEY) {
-    throw new Error(
-      'Missing EXPO_PUBLIC_GEMINI_API_KEY in your .env file.\n' +
-      'Get a free key at https://aistudio.google.com/apikey'
-    );
-  }
-  const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-  return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-}
 
 interface DreamAnalysis {
   transcription: string;
@@ -50,8 +37,8 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /**
- * Full dream processing pipeline — sends audio directly to Gemini.
- * One API call: audio → transcription + title + moods + symbols + interpretation.
+ * Full dream processing pipeline — routes audio through a Supabase Edge Function
+ * so the Gemini API key is never exposed in the client bundle.
  */
 export async function processDream(
   audioUri: string,
@@ -61,54 +48,35 @@ export async function processDream(
   isPremium: boolean,
   voiceLanguage?: string
 ): Promise<Partial<Dream>> {
-  const model = getModel();
-
-  // Fetch the audio blob and convert to base64
   const response = await fetch(audioUri);
   const blob = await response.blob();
-  const base64 = await blobToBase64(blob);
+  const audioBase64 = await blobToBase64(blob);
   const mimeType = blob.type || 'audio/webm';
 
-  const symbols = recurringSymbols.length
-    ? `\nThe user has these recurring symbols from past dreams: ${recurringSymbols.join(', ')}.`
-    : '';
+  const { data, error } = await supabase.functions.invoke('process-dream', {
+    body: {
+      audioBase64,
+      mimeType,
+      interpretationStyle,
+      recurringSymbols,
+      voiceLanguage,
+    },
+  });
 
-  const langInstruction = voiceLanguage && voiceLanguage !== 'english'
-    ? `\nRespond in ${voiceLanguage}. The audio may be in ${voiceLanguage} — transcribe it in the original language.`
-    : '';
-
-  const prompt = `Listen to this audio recording of someone describing a dream they had. Use a ${interpretationStyle} interpretation approach.${langInstruction}
-
-First transcribe exactly what they said, then analyze the dream.
-
-Return ONLY a JSON object (no markdown, no code fences) with these exact fields:
-- "transcription": The full verbatim text of what the person said
-- "title": A short, evocative title for the dream (max 6 words)
-- "summary": A 2-3 sentence summary of what happened in the dream
-- "moods": Array of 1-3 objects with "mood" (one of: peaceful, anxious, joyful, confused, sad, excited, fearful, neutral), "confidence" (0-1), "emoji" (matching emoji)
-- "symbols": Array of 1-4 objects with "name" (lowercase, singular — e.g. "rabbit" not "Rabbit" or "rabbits"), "emoji" (matching emoji), "meaning_short" (one sentence meaning). Keep meaningful modifiers that change the symbol's meaning: "chocolate rabbit" and "rabbit" are distinct symbols, but "rabbits" and "rabbit" are the same. If recurring symbols are listed below, reuse those exact names when the same concept appears.
-- "interpretation": 2-4 sentence interpretation of the dream's deeper meaning${symbols}`;
-
-  const result = await model.generateContent([
-    { inlineData: { mimeType, data: base64 } },
-    { text: prompt },
-  ]);
-
-  const text = result.response.text();
-
-  // Extract JSON from response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Gemini did not return valid JSON');
+  if (error) {
+    throw new Error(error.message || 'Failed to process dream');
   }
 
-  const analysis = JSON.parse(jsonMatch[0]) as DreamAnalysis;
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  const analysis = data as DreamAnalysis;
 
   if (!analysis.transcription?.trim()) {
     throw new Error('No speech was detected in the recording. Please try again and speak clearly.');
   }
 
-  // Attach gradient colors to moods
   if (analysis.moods) {
     analysis.moods = analysis.moods.map((m) => ({
       ...m,
@@ -138,39 +106,37 @@ Return ONLY a JSON object (no markdown, no code fences) with these exact fields:
 }
 
 /**
- * "Ask Your Dream" — conversational follow-up using Gemini.
+ * "Ask Your Dream" — routes through a Supabase Edge Function
+ * so the Gemini API key is never exposed in the client bundle.
  */
 export async function askDream(
   _dreamId: string,
   message: string,
   conversationHistory: { role: string; content: string }[],
-  dreamContext?: { title?: string; transcription?: string; summary?: string; interpretation?: string | null },
+  dreamContext?: {
+    title?: string;
+    transcription?: string;
+    summary?: string;
+    interpretation?: string | null;
+  },
   voiceLanguage?: string
 ): Promise<string> {
-  const model = getModel();
+  const { data, error } = await supabase.functions.invoke('ask-dream', {
+    body: {
+      message,
+      conversation_history: conversationHistory,
+      dream_context: dreamContext,
+      voice_language: voiceLanguage,
+    },
+  });
 
-  const langNote = voiceLanguage && voiceLanguage !== 'english'
-    ? ` Respond in ${voiceLanguage}.`
-    : '';
+  if (error) {
+    throw new Error(error.message || 'Failed to get dream response');
+  }
 
-  const systemContext = dreamContext
-    ? `You are a thoughtful dream analyst. Be warm, insightful, and concise (2-4 sentences).${langNote}
+  if (data?.error) {
+    throw new Error(data.error);
+  }
 
-Dream context:
-- Title: ${dreamContext.title}
-- What happened: ${dreamContext.transcription}
-- Summary: ${dreamContext.summary}
-- Interpretation: ${dreamContext.interpretation ?? 'Not yet interpreted'}
-
-`
-    : `You are a thoughtful dream analyst. Be warm, insightful, and concise.${langNote}\n\n`;
-
-  const history = conversationHistory
-    .map((m) => `${m.role === 'user' ? 'User' : 'Analyst'}: ${m.content}`)
-    .join('\n');
-
-  const prompt = `${systemContext}${history ? `Conversation so far:\n${history}\n\n` : ''}User: ${message}\n\nAnalyst:`;
-
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  return data?.response ?? '';
 }
