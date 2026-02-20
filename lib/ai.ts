@@ -64,7 +64,16 @@ export async function processDream(
   });
 
   if (error) {
-    throw new Error(error.message || 'Failed to process dream');
+    // Try to extract the real error body from the FunctionsHttpError context
+    let detail = data?.error ?? data?.message;
+    if (!detail && (error as any).context) {
+      try {
+        const body = await (error as any).context.json();
+        detail = body?.error ?? body?.message;
+      } catch {}
+    }
+    console.error('[processDream] edge function error:', error.message, 'detail:', detail);
+    throw new Error(detail || error.message || 'Failed to process dream');
   }
 
   if (data?.error) {
