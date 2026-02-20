@@ -47,15 +47,16 @@ serve(async (req) => {
         : "";
 
     const prompt =
-      `Listen to this audio recording of someone describing a dream they had. Use a ${style} interpretation approach.${langInstruction}\n\n` +
-      `First transcribe exactly what they said, then analyze the dream.\n\n` +
+      `Listen carefully to this audio recording. It may contain someone describing a dream, or it may be silent, contain only background noise, or be too unclear to understand.${langInstruction}\n\n` +
+      `IMPORTANT: Only transcribe speech that you can actually hear. Do NOT invent, guess, or hallucinate content. If the audio is silent, contains no intelligible speech, or you cannot make out what is being said, you MUST set "transcription" to an empty string "" and all other fields to empty defaults.\n\n` +
+      `If clear speech describing a dream is present, transcribe it verbatim and analyze it using a ${style} interpretation approach.\n\n` +
       `Return ONLY a JSON object (no markdown, no code fences) with these exact fields:\n` +
-      `- "transcription": The full verbatim text of what the person said\n` +
-      `- "title": A short, evocative title for the dream (max 6 words)\n` +
-      `- "summary": A 2-3 sentence summary of what happened in the dream\n` +
-      `- "moods": Array of 1-3 objects with "mood" (one of: peaceful, anxious, joyful, confused, sad, excited, fearful, neutral), "confidence" (0-1), "emoji" (matching emoji)\n` +
-      `- "symbols": Array of 1-4 objects with "name" (lowercase, singular — e.g. "rabbit" not "Rabbit" or "rabbits"), "emoji" (matching emoji), "meaning_short" (one sentence meaning). Keep meaningful modifiers that change the symbol's meaning: "chocolate rabbit" and "rabbit" are distinct symbols, but "rabbits" and "rabbit" are the same. If recurring symbols are listed below, reuse those exact names when the same concept appears.\n` +
-      `- "interpretation": 2-4 sentence interpretation of the dream's deeper meaning${symbols}`;
+      `- "transcription": The full verbatim text of what the person said, or "" if no clear speech was detected\n` +
+      `- "title": A short, evocative title for the dream (max 6 words), or "" if no speech\n` +
+      `- "summary": A 2-3 sentence summary of what happened in the dream, or "" if no speech\n` +
+      `- "moods": Array of 1-3 objects with "mood" (one of: peaceful, anxious, joyful, confused, sad, excited, fearful, neutral), "confidence" (0-1), "emoji" (matching emoji). Empty array if no speech.\n` +
+      `- "symbols": Array of 1-4 objects with "name" (lowercase, singular — e.g. "rabbit" not "Rabbit" or "rabbits"), "emoji" (matching emoji), "meaning_short" (one sentence meaning). Keep meaningful modifiers that change the symbol's meaning: "chocolate rabbit" and "rabbit" are distinct symbols, but "rabbits" and "rabbit" are the same. If recurring symbols are listed below, reuse those exact names when the same concept appears. Empty array if no speech.\n` +
+      `- "interpretation": 2-4 sentence interpretation of the dream's deeper meaning, or "" if no speech${symbols}`;
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
