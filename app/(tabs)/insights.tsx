@@ -8,17 +8,15 @@ import Svg, { Circle } from 'react-native-svg';
 import { subDays, isAfter, format, isToday, isYesterday } from 'date-fns';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, lineHeight, SCREEN_PADDING } from '@/lib/theme';
+import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import SymbolChip from '@/components/SymbolChip';
 import PatternAlertCard from '@/components/PatternAlert';
-import type { PatternAlert, Dream } from '@/types';
+import type { PatternAlert, Dream, DreamSymbol } from '@/types';
+
+type SymbolEntry = { symbol: DreamSymbol; count: number; dreamIds: string[] };
 
 async function generateWeeklyReport(recentDreams: Dream[]): Promise<string> {
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const key = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-  if (!key) return 'Set EXPO_PUBLIC_GEMINI_API_KEY to generate weekly reports.';
-  const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
   const dreamSummaries = recentDreams
     .map((d, i) => {
       const symbols = d.symbols.map((s) => s.name).join(', ');
@@ -26,9 +24,20 @@ async function generateWeeklyReport(recentDreams: Dream[]): Promise<string> {
       return `Dream ${i + 1} (${format(new Date(d.created_at), 'EEE')}): "${d.title}" — ${d.summary} [Moods: ${moods}] [Symbols: ${symbols}]`;
     })
     .join('\n');
-  const prompt = `You are a dream analyst. Based on these ${recentDreams.length} dreams from the past week, write a brief (3-5 sentence) weekly dream report. Identify overall themes, emotional patterns, and what the dreamer's subconscious might be processing. Be warm and insightful.\n\n${dreamSummaries}`;
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+
+  const { data, error } = await supabase.functions.invoke('generate-report', {
+    body: { dreamSummaries, dreamCount: recentDreams.length },
+  });
+
+  if (error) {
+    let detail = data?.error ?? data?.message;
+    if (!detail && (error as any).context) {
+      try { const body = await (error as any).context.json(); detail = body?.error ?? body?.message; } catch {}
+    }
+    throw new Error(detail || error.message || 'Failed to generate report');
+  }
+  if (data?.error) throw new Error(data.error);
+  return data?.report ?? '';
 }
 
 export default function InsightsScreen() {
@@ -40,8 +49,11 @@ export default function InsightsScreen() {
   const [reportLoading, setReportLoading] = useState(false);
 
   const totalDreams = dreams.length;
-  const sevenDaysAgo = subDays(new Date(), 7);
-  const recentDreams = dreams.filter((d) => isAfter(new Date(d.created_at), sevenDaysAgo));
+
+  const recentDreams = useMemo(() => {
+    const sevenDaysAgo = subDays(new Date(), 7);
+    return dreams.filter((d) => isAfter(new Date(d.created_at), sevenDaysAgo));
+  }, [dreams]);
 
   const healthScore = useMemo(() => {
     if (totalDreams === 0) return 0;
@@ -58,16 +70,23 @@ export default function InsightsScreen() {
   const strokeDashoffset = circumference - (healthScore / 100) * circumference;
 
   const { recurringSymbols, symbolMap } = useMemo(() => {
-    const sMap = new Map<string, { symbol: any; count: number; dreamIds: string[] }>();
+    const sMap = new Map<string, SymbolEntry>();
     for (const dream of dreams) {
       for (const sym of dream.symbols) {
         const key = sym.name.toLowerCase().trim();
         const existing = sMap.get(key);
-        if (existing) { existing.count += 1; if (!existing.dreamIds.includes(dream.id)) existing.dreamIds.push(dream.id); }
-        else { sMap.set(key, { symbol: { ...sym, name: key, occurrence_count: 1 }, count: 1, dreamIds: [dream.id] }); }
+        if (existing) {
+          existing.count += 1;
+          if (!existing.dreamIds.includes(dream.id)) existing.dreamIds.push(dream.id);
+        } else {
+          sMap.set(key, { symbol: { ...sym, name: key }, count: 1, dreamIds: [dream.id] });
+        }
       }
     }
-    const symbols = Array.from(sMap.values()).map(({ symbol, count }) => ({ ...symbol, occurrence_count: count })).sort((a: any, b: any) => b.occurrence_count - a.occurrence_count).slice(0, 8);
+    const symbols: DreamSymbol[] = Array.from(sMap.values())
+      .map(({ symbol, count }) => ({ ...symbol, occurrence_count: count }))
+      .sort((a, b) => b.occurrence_count - a.occurrence_count)
+      .slice(0, 8);
     return { recurringSymbols: symbols, symbolMap: sMap };
   }, [dreams]);
 
@@ -179,7 +198,7 @@ export default function InsightsScreen() {
             <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Recurring Symbols</Text>
           </View>
           {recurringSymbols.length > 0 ? (
-            <View style={styles.symbolsGrid}>{recurringSymbols.map((sym: any, i: number) => <SymbolChip key={i} symbol={sym} highlighted={sym.occurrence_count > 2} />)}</View>
+            <View style={styles.symbolsGrid}>{recurringSymbols.map((sym, i) => <SymbolChip key={i} symbol={sym} highlighted={sym.occurrence_count > 2} />)}</View>
           ) : (
             <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Symbols from your dreams will appear here</Text>
           )}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +26,7 @@ export default function DreamDetailScreen() {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
+  const waveHeights = useMemo(() => Array.from({ length: 20 }, () => 4 + Math.random() * 16), []);
 
   useEffect(() => { return () => { sound?.unloadAsync(); }; }, [sound]);
 
@@ -116,7 +117,7 @@ export default function DreamDetailScreen() {
             </Pressable>
             <View style={styles.audioInfo}>
               <View style={styles.audioWave}>
-                {Array.from({ length: 20 }).map((_, i) => <View key={i} style={[styles.waveBar, { height: 4 + Math.random() * 16, backgroundColor: c.accent, opacity: 0.5 }]} />)}
+                {waveHeights.map((h, i) => <View key={i} style={[styles.waveBar, { height: h, backgroundColor: c.accent, opacity: 0.5 }]} />)}
               </View>
               <Text style={[styles.audioDuration, { color: c.textTertiary, fontFamily: theme.fonts.mono }]}>{formatDuration(dream.audio_duration_seconds)}</Text>
             </View>

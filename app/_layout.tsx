@@ -57,17 +57,22 @@ function RootLayoutInner() {
       setAuthLoading(false);
       return;
     }
+
+    async function loadUserData(userId: string): Promise<void> {
+      const [profileResult, dreams] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        fetchDreams(userId),
+      ]);
+      if (profileResult.data) setUser(profileResult.data);
+      if (dreams.length > 0) setDreams(dreams);
+    }
+
     let subscription: { unsubscribe: () => void } | undefined;
     try {
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session) {
           setSession({ access_token: session.access_token });
-          try {
-            const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-            if (data) setUser(data);
-            const dreams = await fetchDreams(session.user.id);
-            if (dreams.length > 0) setDreams(dreams);
-          } catch {}
+          try { await loadUserData(session.user.id); } catch {}
           setAuthLoading(false);
         } else {
           setAuthLoading(false);
@@ -77,12 +82,7 @@ function RootLayoutInner() {
       const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session) {
           setSession({ access_token: session.access_token });
-          try {
-            const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-            if (data) setUser(data);
-            const dreams = await fetchDreams(session.user.id);
-            if (dreams.length > 0) setDreams(dreams);
-          } catch {}
+          try { await loadUserData(session.user.id); } catch {}
         } else {
           setSession(null);
           setUser(null);

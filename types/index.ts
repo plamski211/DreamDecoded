@@ -36,7 +36,7 @@ export interface Dream {
   title: string;
   transcription: string;
   summary: string;
-  audio_url: string;
+  audio_url: string | null;
   audio_duration_seconds: number;
   moods: MoodTag[];
   symbols: DreamSymbol[];

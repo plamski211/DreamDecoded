@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import type { Dream } from '@/types';
 import FadeInView from '@/components/FadeInView';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing, fontSize as fs, lineHeight, SCREEN_PADDING } from '@/lib/theme';
+import { spacing, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
 import { getGreeting } from '@/lib/dreamAnalysis';
 import { processDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
@@ -14,7 +14,6 @@ import MorningCircle from '@/components/MorningCircle';
 import DreamCard from '@/components/DreamCard';
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { theme, themeKey } = useTheme();
   const c = theme.colors;
   const user = useAppStore((s) => s.user);
@@ -28,27 +27,33 @@ export default function HomeScreen() {
   const lastDream = dreams[0] ?? null;
   const streak = user?.streak_current ?? 0;
 
+  const recurringSymbols = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const d of dreams) {
+      for (const s of d.symbols) {
+        const key = s.name.toLowerCase().trim();
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries()).filter(([, n]) => n >= 2).map(([name]) => name);
+  }, [dreams]);
+
   const handleDreamRecorded = useCallback(
     async (result: { uri: string; duration: number }) => {
       const userId = user?.id ?? 'local';
       const style = user?.interpretation_style ?? 'mixed';
-      const symbolCounts = new Map<string, number>();
-      for (const d of dreams) {
-        for (const s of d.symbols) {
-          const key = s.name.toLowerCase().trim();
-          symbolCounts.set(key, (symbolCounts.get(key) ?? 0) + 1);
-        }
-      }
-      const recurringSymbols = Array.from(symbolCounts.entries())
-        .filter(([, count]) => count >= 2)
-        .map(([name]) => name);
-
       const voiceLanguage = user?.voice_language || undefined;
 
       setProcessing(true);
       try {
         const dream = await processDream(result.uri, userId, style, recurringSymbols, true, voiceLanguage);
-        const fullDream = { id: crypto.randomUUID(), created_at: new Date().toISOString(), audio_duration_seconds: result.duration, ...dream } as any;
+        const fullDream = {
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+          audio_duration_seconds: result.duration,
+          art_style: null,
+          ...dream,
+        } as Dream;
         addDream(fullDream);
         setDecodedDream(fullDream);
 
@@ -75,7 +80,7 @@ export default function HomeScreen() {
         setProcessing(false);
       }
     },
-    [user, dreams]
+    [user, recurringSymbols]
   );
 
   return (
