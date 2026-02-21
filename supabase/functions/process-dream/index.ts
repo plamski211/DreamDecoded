@@ -5,6 +5,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Canonical emoji for each mood — used as fallback if Gemini returns a word instead of an emoji
+const MOOD_EMOJI: Record<string, string> = {
+  peaceful: '😌', anxious: '😰', joyful: '😊',
+  confused: '😕', sad: '😢', excited: '🤩',
+  fearful: '😨', neutral: '😐',
+};
+
+// Returns true if the string contains at least one actual emoji codepoint
+function isEmoji(str: string): boolean {
+  return /\p{Emoji}/u.test(str) && !/^[\x00-\x7F]+$/.test(str.trim());
+}
+
 const MOOD_GRADIENTS: Record<string, readonly [string, string]> = {
   peaceful: ["#5B8DEF", "#7C5CFC"],
   anxious: ["#EF4444", "#F59E0B"],
@@ -54,8 +66,8 @@ serve(async (req) => {
       `- "transcription": The full verbatim text of what the person said, or "" if no clear speech was detected\n` +
       `- "title": A short, evocative title for the dream (max 6 words), or "" if no speech\n` +
       `- "summary": A 2-3 sentence summary of what happened in the dream, or "" if no speech\n` +
-      `- "moods": Array of 1-3 objects with "mood" (one of: peaceful, anxious, joyful, confused, sad, excited, fearful, neutral), "confidence" (0-1), "emoji" (matching emoji). Empty array if no speech.\n` +
-      `- "symbols": Array of 1-4 objects with "name" (lowercase, singular — e.g. "rabbit" not "Rabbit" or "rabbits"), "emoji" (matching emoji), "meaning_short" (one sentence meaning). Keep meaningful modifiers that change the symbol's meaning: "chocolate rabbit" and "rabbit" are distinct symbols, but "rabbits" and "rabbit" are the same. If recurring symbols are listed below, reuse those exact names when the same concept appears. Empty array if no speech.\n` +
+      `- "moods": Array of 1-3 objects with "mood" (one of: peaceful, anxious, joyful, confused, sad, excited, fearful, neutral), "confidence" (0-1), "emoji" (a single Unicode emoji character — e.g. 😊 not the word "joyful"). Empty array if no speech.\n` +
+      `- "symbols": Array of 1-4 objects with "name" (lowercase, singular — e.g. "rabbit" not "Rabbit" or "rabbits"), "emoji" (a single Unicode emoji character representing the symbol — e.g. 🐇 not the word "rabbit"), "meaning_short" (one sentence meaning). Keep meaningful modifiers that change the symbol's meaning: "chocolate rabbit" and "rabbit" are distinct symbols, but "rabbits" and "rabbit" are the same. If recurring symbols are listed below, reuse those exact names when the same concept appears. Empty array if no speech.\n` +
       `- "interpretation": 2-4 sentence interpretation of the dream's deeper meaning, or "" if no speech${symbols}`;
 
     const res = await fetch(
@@ -98,9 +110,19 @@ serve(async (req) => {
     }
 
     if (analysis.moods) {
-      analysis.moods = analysis.moods.map((m: { mood: string; [key: string]: unknown }) => ({
+      analysis.moods = analysis.moods.map((m: { mood: string; emoji?: string; [key: string]: unknown }) => ({
         ...m,
+        // Fall back to the canonical emoji if Gemini returned a word instead
+        emoji: isEmoji(m.emoji ?? '') ? m.emoji : (MOOD_EMOJI[m.mood] ?? '😐'),
         gradient: MOOD_GRADIENTS[m.mood] ?? MOOD_GRADIENTS.neutral,
+      }));
+    }
+
+    if (analysis.symbols) {
+      analysis.symbols = analysis.symbols.map((s: { emoji?: string; [key: string]: unknown }) => ({
+        ...s,
+        // If Gemini returned a word for the symbol emoji, strip it — client can show name only
+        emoji: isEmoji(s.emoji ?? '') ? s.emoji : '',
       }));
     }
 
