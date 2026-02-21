@@ -5,14 +5,32 @@ import { useRouter } from 'expo-router';
 import { TrendingUp, Repeat, FileText, Link2, AlertCircle } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
 import Svg, { Circle } from 'react-native-svg';
-import { subDays, isAfter, format, isToday, isYesterday } from 'date-fns';
+import { subDays, isAfter, format } from 'date-fns';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing, radius, fontSize as fs, lineHeight, SCREEN_PADDING } from '@/lib/theme';
+import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import SymbolChip from '@/components/SymbolChip';
 import PatternAlertCard from '@/components/PatternAlert';
 import type { PatternAlert, Dream, DreamSymbol } from '@/types';
+
+// Positivity score per mood — determines bar height in the weekly chart
+const MOOD_SCORE: Record<string, number> = {
+  joyful: 1.0, peaceful: 0.9, excited: 0.8,
+  neutral: 0.5, confused: 0.4,
+  sad: 0.2, anxious: 0.15, fearful: 0.0,
+};
+
+// Fixed colors per mood (same as gradient[0] values used throughout the app)
+const MOOD_COLOR: Record<string, string> = {
+  peaceful: '#5B8DEF', anxious: '#EF4444', joyful: '#F59E0B',
+  confused: '#8B5CF6', sad: '#3B82F6', excited: '#F472B6',
+  fearful: '#6366F1', neutral: '#6B7280',
+};
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 type SymbolEntry = { symbol: DreamSymbol; count: number; dreamIds: string[] };
 
@@ -68,6 +86,60 @@ export default function InsightsScreen() {
 
   const circumference = 2 * Math.PI * 45;
   const strokeDashoffset = circumference - (healthScore / 100) * circumference;
+
+  // Last 7 calendar days — each entry has the dominant mood for that day (or null)
+  const sevenDayMoods = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = subDays(new Date(), 6 - i);
+      const dayStr = format(day, 'yyyy-MM-dd');
+      const dayDreams = dreams.filter(
+        (d) => format(new Date(d.created_at), 'yyyy-MM-dd') === dayStr,
+      );
+      if (dayDreams.length === 0) return { label: format(day, 'EEEEE'), mood: null };
+      const allMoods = dayDreams.flatMap((d) => d.moods);
+      const dominant = [...allMoods].sort((a, b) => b.confidence - a.confidence)[0] ?? null;
+      return { label: format(day, 'EEEEE'), mood: dominant };
+    });
+  }, [dreams]);
+
+  // Proportion of each mood as the primary mood across all dreams
+  const moodDistribution = useMemo(() => {
+    const counts: Record<string, { count: number; emoji: string }> = {};
+    for (const dream of dreams) {
+      const primary = [...dream.moods].sort((a, b) => b.confidence - a.confidence)[0];
+      if (primary) {
+        if (!counts[primary.mood]) counts[primary.mood] = { count: 0, emoji: primary.emoji };
+        counts[primary.mood].count += 1;
+      }
+    }
+    const total = Object.values(counts).reduce((s, v) => s + v.count, 0) || 1;
+    return Object.entries(counts)
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([mood, { count, emoji }]) => ({
+        mood,
+        count,
+        emoji,
+        pct: count / total,
+        color: MOOD_COLOR[mood] ?? '#6B7280',
+      }));
+  }, [dreams]);
+
+  // Compare average positivity of last 3 dreams vs the 3 before that
+  const moodTrend = useMemo((): 'up' | 'down' | 'neutral' => {
+    if (dreams.length < 2) return 'neutral';
+    const score = (d: Dream) => {
+      const primary = [...d.moods].sort((a, b) => b.confidence - a.confidence)[0];
+      return primary ? (MOOD_SCORE[primary.mood] ?? 0.5) : 0.5;
+    };
+    const recent = dreams.slice(0, Math.min(3, dreams.length));
+    const prev = dreams.slice(Math.min(3, dreams.length), Math.min(6, dreams.length));
+    if (prev.length === 0) return 'neutral';
+    const recentAvg = recent.reduce((s, d) => s + score(d), 0) / recent.length;
+    const prevAvg = prev.reduce((s, d) => s + score(d), 0) / prev.length;
+    if (recentAvg > prevAvg + 0.08) return 'up';
+    if (recentAvg < prevAvg - 0.08) return 'down';
+    return 'neutral';
+  }, [dreams]);
 
   const { recurringSymbols, symbolMap } = useMemo(() => {
     const sMap = new Map<string, SymbolEntry>();
@@ -125,9 +197,11 @@ export default function InsightsScreen() {
     if (weeklyReport) return;
     setReportLoading(true);
     try { const report = await generateWeeklyReport(recentDreams); setWeeklyReport(report); }
-    catch { Alert.alert('Error', 'Could not generate weekly report. Check your Gemini API key.'); }
+    catch { Alert.alert('Error', 'Could not generate weekly report. Check your connection and try again.'); }
     finally { setReportLoading(false); }
   }, [recentDreams, weeklyReport]);
+
+  const activeDays = sevenDayMoods.filter((d) => d.mood !== null).length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
@@ -153,40 +227,134 @@ export default function InsightsScreen() {
           </View>
         </FadeInView>
 
-        {/* Mood Trends */}
+        {/* Emotional Landscape */}
         <FadeInView delay={200} style={styles.section}>
           <View style={styles.sectionHeader}>
             <TrendingUp size={18} color={c.accent} strokeWidth={1.5} />
-            <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Mood Trends</Text>
+            <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Emotional Landscape</Text>
           </View>
+
           {totalDreams === 0 ? (
-            <View style={[styles.moodChartEmpty, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Record dreams to see your mood trends over time</Text>
+            <View style={[styles.emptyCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Record dreams to see your emotional landscape</Text>
             </View>
           ) : (
-            <View style={styles.moodTrendList}>
-              {dreams.slice(0, 7).map((dream, i) => {
-                const primaryMood = dream.moods[0];
-                const confidence = primaryMood?.confidence ?? 0.3;
-                const moodColor = primaryMood?.gradient[0] ?? c.accent;
-                const moodName = primaryMood?.mood ?? 'neutral';
-                const moodEmoji = primaryMood?.emoji ?? '';
-                const date = new Date(dream.created_at);
-                const dateLabel = isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'EEE');
-                const barWidth = Math.max(0.2, confidence);
-                return (
-                  <Pressable key={dream.id} onPress={() => router.push(`/dream/${dream.id}`)} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
-                    <View style={[styles.moodTrendRow, i < Math.min(dreams.length, 7) - 1 && [styles.moodTrendRowBorder, { borderBottomColor: c.borderSubtle }]]}>
-                      <Text style={[styles.moodTrendDate, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>{dateLabel}</Text>
-                      <Text style={styles.moodTrendEmoji}>{moodEmoji}</Text>
-                      <View style={styles.moodTrendBarTrack}>
-                        <View style={[styles.moodTrendBarFill, { width: `${barWidth * 100}%`, backgroundColor: moodColor }]} />
+            <View style={styles.landscapeContainer}>
+
+              {/* 7-Night Bar Chart */}
+              <View style={[styles.weekCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                <Text style={[styles.cardMiniLabel, {
+                  color: c.textTertiary,
+                  fontFamily: theme.fonts.caption,
+                  letterSpacing: theme.labelStyle.letterSpacing,
+                  textTransform: theme.labelStyle.textTransform,
+                  fontSize: theme.labelStyle.fontSize,
+                }]}>
+                  This Week
+                </Text>
+                <View style={styles.barsRow}>
+                  {sevenDayMoods.map((entry, i) => {
+                    const score = entry.mood ? (MOOD_SCORE[entry.mood.mood] ?? 0.5) : 0;
+                    const color = entry.mood ? (MOOD_COLOR[entry.mood.mood] ?? c.accent) : c.borderSubtle;
+                    const barH = entry.mood ? Math.max(Math.round(score * 56), 6) : 0;
+                    return (
+                      <View key={i} style={styles.barCol}>
+                        <View style={styles.emojiZone}>
+                          {entry.mood ? <Text style={styles.barEmoji}>{entry.mood.emoji}</Text> : null}
+                        </View>
+                        <View style={styles.barTrack}>
+                          {entry.mood ? (
+                            <View style={[styles.barFill, { height: barH, backgroundColor: color }]} />
+                          ) : (
+                            <View style={[styles.barEmpty, { backgroundColor: c.borderSubtle }]} />
+                          )}
+                        </View>
+                        <Text style={[styles.barDay, { color: entry.mood ? c.textSecondary : c.textTertiary, fontFamily: theme.fonts.caption }]}>
+                          {entry.label}
+                        </Text>
                       </View>
-                      <Text style={[styles.moodTrendLabel, { color: c.textSecondary, fontFamily: theme.fonts.body }]} numberOfLines={1}>{moodName}</Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
+                    );
+                  })}
+                </View>
+                {/* Positivity scale labels */}
+                <View style={styles.scaleRow}>
+                  <Text style={[styles.scaleLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>fearful</Text>
+                  <View style={[styles.scaleLine, { backgroundColor: c.borderSubtle }]} />
+                  <Text style={[styles.scaleLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>joyful</Text>
+                </View>
+              </View>
+
+              {/* All-Time Mood Mix */}
+              {moodDistribution.length > 0 && (
+                <View style={[styles.weekCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                  <Text style={[styles.cardMiniLabel, {
+                    color: c.textTertiary,
+                    fontFamily: theme.fonts.caption,
+                    letterSpacing: theme.labelStyle.letterSpacing,
+                    textTransform: theme.labelStyle.textTransform,
+                    fontSize: theme.labelStyle.fontSize,
+                  }]}>
+                    All-Time Mix
+                  </Text>
+                  {/* Stacked proportion bar */}
+                  <View style={[styles.stackedBar, { backgroundColor: c.bg }]}>
+                    {moodDistribution.map((m, i) => (
+                      <View
+                        key={m.mood}
+                        style={[
+                          styles.stackedSegment,
+                          {
+                            flex: m.pct,
+                            backgroundColor: m.color,
+                            borderTopLeftRadius: i === 0 ? radius.full : 0,
+                            borderBottomLeftRadius: i === 0 ? radius.full : 0,
+                            borderTopRightRadius: i === moodDistribution.length - 1 ? radius.full : 0,
+                            borderBottomRightRadius: i === moodDistribution.length - 1 ? radius.full : 0,
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  {/* Legend */}
+                  <View style={styles.mixLegend}>
+                    {moodDistribution.slice(0, 5).map((m) => (
+                      <View key={m.mood} style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: m.color }]} />
+                        <Text style={[styles.legendLabel, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
+                          {m.emoji} {capitalize(m.mood)} {Math.round(m.pct * 100)}%
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Insight chips */}
+              <View style={styles.insightChips}>
+                {moodDistribution[0] && (
+                  <View style={[styles.insightChip, { backgroundColor: c.surface, borderColor: c.border }]}>
+                    <View style={[styles.insightDot, { backgroundColor: moodDistribution[0].color }]} />
+                    <Text style={[styles.insightText, { color: c.text, fontFamily: theme.fonts.body }]}>
+                      {moodDistribution[0].emoji} {capitalize(moodDistribution[0].mood)} fills {Math.round(moodDistribution[0].pct * 100)}% of your dreams
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.insightChip, { backgroundColor: c.surface, borderColor: c.border }]}>
+                  <Text style={[styles.insightText, { color: c.text, fontFamily: theme.fonts.body }]}>
+                    {moodTrend === 'up' && '↑ Trending more positive than your last few dreams'}
+                    {moodTrend === 'down' && '↓ Dreams are drifting darker — worth noticing'}
+                    {moodTrend === 'neutral' && '→ Your dream mood has been steady lately'}
+                  </Text>
+                </View>
+                {activeDays > 0 && (
+                  <View style={[styles.insightChip, { backgroundColor: c.surface, borderColor: c.border }]}>
+                    <Text style={[styles.insightText, { color: c.text, fontFamily: theme.fonts.body }]}>
+                      🌙 {activeDays} of 7 nights recorded this week
+                    </Text>
+                  </View>
+                )}
+              </View>
+
             </View>
           )}
         </FadeInView>
@@ -267,34 +435,71 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingHorizontal: SCREEN_PADDING, paddingBottom: spacing.xxxl },
   pageTitle: { fontSize: fs.heading, paddingTop: spacing.md, marginBottom: spacing.lg },
+
+  // Health score card
   scoreCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.lg, marginBottom: spacing.lg },
   scoreRing: { width: 100, height: 100, alignItems: 'center', justifyContent: 'center' },
   scoreValue: { position: 'absolute', fontSize: fs.title },
   scoreInfo: { flex: 1, gap: spacing.xs },
   scoreLabel: { fontSize: fs.subhead },
   scoreDescription: { fontSize: fs.caption },
+
+  // Section shell
   section: { marginBottom: spacing.lg, gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sectionTitle: { fontSize: fs.subhead },
-  moodChartEmpty: { borderRadius: radius.md, borderWidth: 1, padding: spacing.lg },
-  moodTrendList: { gap: 0 },
-  moodTrendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm + 2, gap: spacing.sm },
-  moodTrendRowBorder: { borderBottomWidth: 1 },
-  moodTrendDate: { width: 56, fontSize: fs.tiny },
-  moodTrendEmoji: { fontSize: 18, width: 24, textAlign: 'center' },
-  moodTrendBarTrack: { flex: 1, height: 8, borderRadius: radius.sm, overflow: 'hidden' },
-  moodTrendBarFill: { height: '100%', borderRadius: radius.sm },
-  moodTrendLabel: { width: 64, fontSize: fs.tiny, textTransform: 'capitalize' },
+
+  // Emotional Landscape
+  emptyCard: { borderRadius: radius.md, borderWidth: 1, padding: spacing.lg },
+  landscapeContainer: { gap: spacing.sm },
+
+  weekCard: { borderRadius: radius.lg, borderWidth: 1, padding: spacing.md, gap: spacing.md },
+  cardMiniLabel: {},
+
+  // 7-night bar chart
+  barsRow: { flexDirection: 'row', alignItems: 'flex-end' },
+  barCol: { flex: 1, alignItems: 'center', gap: 4 },
+  emojiZone: { height: 20, justifyContent: 'flex-end', alignItems: 'center' },
+  barEmoji: { fontSize: 12 },
+  barTrack: { height: 60, width: '75%', justifyContent: 'flex-end', alignItems: 'center' },
+  barFill: { width: '100%', borderRadius: 4 },
+  barEmpty: { width: 4, height: 4, borderRadius: 2, opacity: 0.4 },
+  barDay: { fontSize: fs.micro, textAlign: 'center' },
+  scaleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xs },
+  scaleLine: { flex: 1, height: 1 },
+  scaleLabel: { fontSize: fs.micro },
+
+  // All-time mix
+  stackedBar: { flexDirection: 'row', height: 10, borderRadius: radius.full, overflow: 'hidden' },
+  stackedSegment: { height: '100%' },
+  mixLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 6, height: 6, borderRadius: 3 },
+  legendLabel: { fontSize: fs.tiny },
+
+  // Insight chips
+  insightChips: { gap: spacing.xs },
+  insightChip: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, gap: spacing.sm },
+  insightDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  insightText: { flex: 1, fontSize: fs.caption },
+
+  // Symbols
   symbolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+
+  // Connections
   connectionCard: { borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm },
   connectionSymbol: { fontSize: fs.caption },
   connectionDreams: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   connectionDreamPill: { borderRadius: radius.full, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   connectionDreamText: { fontSize: fs.tiny, maxWidth: 140 },
+
+  // Weekly report
   reportCard: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm },
   reportTitle: { fontSize: fs.body },
   reportSubtitle: { fontSize: fs.caption },
   reportBody: { fontSize: fs.caption, lineHeight: fs.caption * 1.6 },
+
+  // Alerts
   alertsList: { gap: spacing.sm },
   placeholder: { fontSize: fs.caption, textAlign: 'center', paddingVertical: spacing.lg },
 });
