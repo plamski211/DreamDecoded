@@ -10,6 +10,32 @@ interface DreamAnalysis {
   interpretation: string;
 }
 
+/**
+ * Converts any raw/technical error message into something safe to show a user.
+ * Messages already written for users (from our edge functions) pass through unchanged.
+ */
+function friendlyError(raw: string | undefined): string {
+  if (!raw) return 'Something went wrong. Please try again.';
+  const lower = raw.toLowerCase();
+  // Network / connectivity issues
+  if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network request failed')) {
+    return 'Connection issue. Please check your internet and try again.';
+  }
+  // Supabase client wrapper message — the real detail was already extracted separately
+  if (lower.includes('non-2xx') || lower.includes('edge function')) {
+    return 'Something went wrong. Please try again.';
+  }
+  // Any residual quota / auth leak that somehow bypassed the edge function sanitizer
+  if (lower.includes('quota') || lower.includes('rate limit') || lower.includes('resource has been exhausted')) {
+    return "We're receiving a lot of requests right now. Please wait a moment and try again.";
+  }
+  if (lower.includes('api key') || lower.includes('invalid key') || lower.includes('unauthorized')) {
+    return 'Our service is temporarily unavailable. Please try again later.';
+  }
+  // Return the message as-is — it was written by us and is already user-friendly
+  return raw;
+}
+
 const MOOD_GRADIENTS: Record<string, readonly [string, string]> = {
   peaceful: ['#5B8DEF', '#7C5CFC'],
   anxious: ['#EF4444', '#F59E0B'],
@@ -72,12 +98,11 @@ export async function processDream(
         detail = body?.error ?? body?.message;
       } catch {}
     }
-    console.error('[processDream] edge function error:', error.message, 'detail:', detail);
-    throw new Error(detail || error.message || 'Failed to process dream');
+    throw new Error(friendlyError(detail || error.message));
   }
 
   if (data?.error) {
-    throw new Error(data.error);
+    throw new Error(friendlyError(data.error));
   }
 
   const analysis = data as DreamAnalysis;
@@ -140,11 +165,18 @@ export async function askDream(
   });
 
   if (error) {
-    throw new Error(error.message || 'Failed to get dream response');
+    let detail = data?.error ?? data?.message;
+    if (!detail && (error as any).context) {
+      try {
+        const body = await (error as any).context.json();
+        detail = body?.error ?? body?.message;
+      } catch {}
+    }
+    throw new Error(friendlyError(detail || error.message));
   }
 
   if (data?.error) {
-    throw new Error(data.error);
+    throw new Error(friendlyError(data.error));
   }
 
   return data?.response ?? '';

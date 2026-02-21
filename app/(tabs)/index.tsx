@@ -73,9 +73,8 @@ export default function HomeScreen() {
           sendDreamProcessedNotification(fullDream.title).catch(() => {});
         }
       } catch (err) {
-        const detail = err instanceof Error ? err.message : String(err);
-        const msg = `Failed to process your dream:\n\n${detail}`;
-        if (Platform.OS === 'web') { window.alert(msg); } else { Alert.alert('Processing Error', msg); }
+        const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+        if (Platform.OS === 'web') { window.alert(msg); } else { Alert.alert('Dream Recording', msg); }
       } finally {
         setProcessing(false);
       }

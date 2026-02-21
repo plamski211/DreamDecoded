@@ -22,7 +22,7 @@ serve(async (req) => {
 
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiKey) {
-      throw new Error("GEMINI_API_KEY is not configured on this server");
+      throw new Error("Our dream interpreter is temporarily unavailable. Please try again later.");
     }
 
     const langNote =
@@ -50,8 +50,13 @@ serve(async (req) => {
     );
 
     if (!res.ok) {
-      const errBody = await res.text();
-      throw new Error(`Gemini API error (${res.status}): ${errBody}`);
+      if (res.status === 429) {
+        throw new Error("We're receiving a lot of requests right now. Please wait a moment and try again.");
+      }
+      if (res.status >= 500) {
+        throw new Error("Our dream interpreter is temporarily unavailable. Please try again in a moment.");
+      }
+      throw new Error("Something went wrong. Please try again.");
     }
 
     const data = await res.json();
