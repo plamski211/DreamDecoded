@@ -400,16 +400,21 @@ export default function InsightsScreen() {
             <FileText size={18} color={c.accent} strokeWidth={1.5} />
             <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Weekly Report</Text>
           </View>
-          <Pressable style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]} onPress={handleViewReport} disabled={reportLoading}>
-            <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
-            {reportLoading ? (
-              <ActivityIndicator color={c.accent} style={{ marginVertical: spacing.sm }} />
-            ) : weeklyReport ? (
+          {weeklyReport ? (
+            <View style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]}>
+              <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
               <Text style={[styles.reportBody, { color: c.text, fontFamily: theme.fonts.body }]}>{weeklyReport}</Text>
-            ) : (
-              <Text style={[styles.reportSubtitle, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Tap to generate an AI summary of your dream patterns</Text>
-            )}
-          </Pressable>
+            </View>
+          ) : (
+            <Pressable style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]} onPress={handleViewReport} disabled={reportLoading}>
+              <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
+              {reportLoading ? (
+                <ActivityIndicator color={c.accent} style={{ marginVertical: spacing.sm }} />
+              ) : (
+                <Text style={[styles.reportSubtitle, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Tap to generate an AI summary of your dream patterns</Text>
+              )}
+            </Pressable>
+          )}
         </FadeInView>
 
         {/* Pattern Alerts */}
