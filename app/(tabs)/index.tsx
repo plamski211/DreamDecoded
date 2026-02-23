@@ -5,7 +5,7 @@ import type { Dream } from '@/types';
 import FadeInView from '@/components/FadeInView';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
-import { getGreeting } from '@/lib/dreamAnalysis';
+import { getGreeting, formatDuration } from '@/lib/dreamAnalysis';
 import { processDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
 import { sendDreamProcessedNotification } from '@/lib/notifications';
@@ -18,6 +18,8 @@ export default function HomeScreen() {
   const c = theme.colors;
   const user = useAppStore((s) => s.user);
   const dreams = useAppStore((s) => s.dreams);
+  const isRecording = useAppStore((s) => s.isRecording);
+  const recordingDuration = useAppStore((s) => s.recordingDuration);
   const isProcessing = useAppStore((s) => s.isProcessing);
   const setProcessing = useAppStore((s) => s.setProcessing);
   const addDream = useAppStore((s) => s.addDream);
@@ -97,7 +99,12 @@ export default function HomeScreen() {
 
       <View style={styles.circleArea}>
         <MorningCircle onDreamRecorded={handleDreamRecorded} />
-        {!isProcessing && (
+        {isRecording && (
+          <Text style={[styles.hint, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>
+            {formatDuration(recordingDuration)}
+          </Text>
+        )}
+        {!isProcessing && !isRecording && (
           <FadeInView delay={300}>
             <Text style={[styles.hint, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>
               Tap to record your dream

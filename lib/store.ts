@@ -36,6 +36,8 @@ interface AppState {
   // UI
   decodedDream: Dream | null;
   setDecodedDream: (dream: Dream | null) => void;
+  weeklyReport: string | null;
+  setWeeklyReport: (report: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -91,4 +93,6 @@ export const useAppStore = create<AppState>((set) => ({
   // UI
   decodedDream: null,
   setDecodedDream: (decodedDream) => set({ decodedDream }),
+  weeklyReport: null,
+  setWeeklyReport: (weeklyReport) => set({ weeklyReport }),
 }));

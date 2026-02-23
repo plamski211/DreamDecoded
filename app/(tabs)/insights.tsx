@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { TrendingUp, Repeat, FileText, Link2, AlertCircle } from 'lucide-react-native';
+import { TrendingUp, Repeat, FileText, Link2, AlertCircle, RefreshCw } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import AlertModal, { type AlertConfig } from '@/components/AlertModal';
 import Svg, { Circle } from 'react-native-svg';
 import { subDays, isAfter, format } from 'date-fns';
 import { useTheme } from '@/lib/ThemeContext';
@@ -63,8 +64,16 @@ export default function InsightsScreen() {
   const { theme } = useTheme();
   const c = theme.colors;
   const dreams = useAppStore((s) => s.dreams);
-  const [weeklyReport, setWeeklyReport] = useState<string | null>(null);
+  const weeklyReport = useAppStore((s) => s.weeklyReport);
+  const setWeeklyReport = useAppStore((s) => s.setWeeklyReport);
   const [reportLoading, setReportLoading] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
+
+  const showAlert = useCallback((config: AlertConfig) => {
+    setAlertConfig(config);
+    setAlertVisible(true);
+  }, []);
 
   const totalDreams = dreams.length;
 
@@ -193,13 +202,21 @@ export default function InsightsScreen() {
   }, [symbolMap, dreams]);
 
   const handleViewReport = useCallback(async () => {
-    if (recentDreams.length === 0) { Alert.alert('No Recent Dreams', 'Record some dreams this week to generate a report.'); return; }
-    if (weeklyReport) return;
+    if (recentDreams.length === 0) {
+      showAlert({ title: 'No Recent Dreams', message: 'Record some dreams this week to generate a report.', buttons: [{ text: 'OK' }] });
+      return;
+    }
+    if (reportLoading) return;
     setReportLoading(true);
-    try { const report = await generateWeeklyReport(recentDreams); setWeeklyReport(report); }
-    catch { Alert.alert('Error', 'Could not generate weekly report. Check your connection and try again.'); }
-    finally { setReportLoading(false); }
-  }, [recentDreams, weeklyReport]);
+    try {
+      const report = await generateWeeklyReport(recentDreams);
+      setWeeklyReport(report);
+    } catch {
+      showAlert({ title: 'Error', message: 'Could not generate weekly report. Check your connection and try again.', buttons: [{ text: 'OK' }] });
+    } finally {
+      setReportLoading(false);
+    }
+  }, [recentDreams, reportLoading, showAlert]);
 
   const activeDays = sevenDayMoods.filter((d) => d.mood !== null).length;
 
@@ -402,7 +419,14 @@ export default function InsightsScreen() {
           </View>
           {weeklyReport ? (
             <View style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]}>
-              <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
+              <View style={styles.reportHeader}>
+                <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
+                <Pressable onPress={handleViewReport} disabled={reportLoading} style={styles.regenerateBtn} hitSlop={8}>
+                  {reportLoading
+                    ? <ActivityIndicator color={c.accent} size="small" />
+                    : <RefreshCw size={16} color={c.textTertiary} strokeWidth={1.5} />}
+                </Pressable>
+              </View>
               <Text style={[styles.reportBody, { color: c.text, fontFamily: theme.fonts.body }]}>{weeklyReport}</Text>
             </View>
           ) : (
@@ -432,6 +456,8 @@ export default function InsightsScreen() {
           )}
         </FadeInView>
       </ScrollView>
+
+      <AlertModal visible={alertVisible} config={alertConfig} onDismiss={() => setAlertVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -499,10 +525,12 @@ const styles = StyleSheet.create({
   connectionDreamText: { fontSize: fs.tiny, maxWidth: 140 },
 
   // Weekly report
-  reportCard: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm },
-  reportTitle: { fontSize: fs.body },
+  reportCard: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm, overflow: 'visible' },
+  reportHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reportTitle: { fontSize: fs.body, flex: 1 },
   reportSubtitle: { fontSize: fs.caption },
-  reportBody: { fontSize: fs.caption, lineHeight: fs.caption * 1.6 },
+  reportBody: { fontSize: fs.caption, lineHeight: fs.caption * 1.6, flexShrink: 1 },
+  regenerateBtn: { padding: 4 },
 
   // Alerts
   alertsList: { gap: spacing.sm },

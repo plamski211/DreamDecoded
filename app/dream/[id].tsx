@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Share, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Play, Pause, Share2, Trash2, MessageCircle } from 'lucide-react-native';
@@ -36,11 +36,38 @@ export default function DreamDetailScreen() {
     else {
       try {
         if (sound) { await sound.playAsync(); }
-        else { const { sound: newSound } = await Audio.Sound.createAsync({ uri: dream.audio_url }, { shouldPlay: true }, (status) => { if (status.isLoaded && status.didJustFinish) setIsPlaying(false); }); setSound(newSound); }
+        else {
+          const { sound: newSound } = await Audio.Sound.createAsync(
+            { uri: dream.audio_url },
+            { shouldPlay: true },
+            (status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                setIsPlaying(false);
+                newSound.unloadAsync().catch(() => {});
+                setSound(null);
+              }
+            }
+          );
+          setSound(newSound);
+        }
         setIsPlaying(true);
       } catch {}
     }
   }, [isPlaying, sound, dream]);
+
+  const handleShare = useCallback(async () => {
+    if (!dream) return;
+    const text = [dream.title, dream.summary, dream.interpretation].filter(Boolean).join('\n\n');
+    if (Platform.OS === 'web') {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: dream.title, text }).catch(() => {});
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text).catch(() => {});
+      }
+    } else {
+      await Share.share({ title: dream.title, message: text }).catch(() => {});
+    }
+  }, [dream]);
 
   const handleDelete = () => {
     setAlertConfig({
@@ -68,7 +95,7 @@ export default function DreamDetailScreen() {
       <View style={styles.navBar}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}><ArrowLeft size={24} color={c.text} strokeWidth={1.5} /></Pressable>
         <View style={styles.navActions}>
-          <Pressable onPress={() => {}}><Share2 size={20} color={c.textSecondary} strokeWidth={1.5} /></Pressable>
+          <Pressable onPress={handleShare}><Share2 size={20} color={c.textSecondary} strokeWidth={1.5} /></Pressable>
           <Pressable onPress={handleDelete}><Trash2 size={20} color={c.error} strokeWidth={1.5} /></Pressable>
         </View>
       </View>
@@ -82,8 +109,14 @@ export default function DreamDetailScreen() {
           <Text style={[styles.sectionTitle, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Transcription</Text>
           <Text style={[styles.transcription, { color: c.text, fontFamily: theme.fonts.body }]}>{dream.transcription}</Text>
         </FadeInView>
+        {dream.summary ? (
+          <FadeInView delay={300} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Summary</Text>
+            <Text style={[styles.summary, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>{dream.summary}</Text>
+          </FadeInView>
+        ) : null}
         {dream.interpretation ? (
-          <FadeInView delay={300}>
+          <FadeInView delay={400}>
             <View style={[styles.interpretationCard, { backgroundColor: c.accentSubtle }]}>
               <View style={[styles.interpretationBorder, { backgroundColor: c.accent }]} />
               <View style={styles.interpretationContent}>
@@ -94,12 +127,12 @@ export default function DreamDetailScreen() {
           </FadeInView>
         ) : null}
         {dream.symbols.length > 0 && (
-          <FadeInView delay={400} style={styles.section}>
+          <FadeInView delay={500} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Symbols</Text>
             <View style={styles.symbolsGrid}>{dream.symbols.map((sym, i) => <SymbolChip key={i} symbol={sym} highlighted={sym.occurrence_count > 1} />)}</View>
           </FadeInView>
         )}
-        <FadeInView delay={500}>
+        <FadeInView delay={600}>
           <Pressable onPress={() => router.push(`/dream/${dream.id}/ask`)}>
             <View style={[styles.askCard, { backgroundColor: c.card, borderColor: c.border }]}>
               <MessageCircle size={24} color={c.accent} strokeWidth={1.5} />
@@ -111,7 +144,7 @@ export default function DreamDetailScreen() {
           </Pressable>
         </FadeInView>
         {dream.audio_url && (
-          <FadeInView delay={600} style={[styles.audioBar, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <FadeInView delay={700} style={[styles.audioBar, { backgroundColor: c.surface, borderColor: c.border }]}>
             <Pressable onPress={toggleAudio} style={[styles.playBtn, { backgroundColor: c.accent }]}>
               {isPlaying ? <Pause size={18} color={c.bg} strokeWidth={2} /> : <Play size={18} color={c.bg} strokeWidth={2} />}
             </Pressable>
@@ -142,6 +175,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   sectionTitle: {},
   transcription: { fontSize: fs.body, lineHeight: fs.body * lineHeight.relaxed },
+  summary: { fontSize: fs.body, lineHeight: fs.body * lineHeight.relaxed },
   interpretationCard: { flexDirection: 'row', borderRadius: radius.md, overflow: 'hidden' },
   interpretationBorder: { width: 3 },
   interpretationContent: { flex: 1, padding: spacing.md, gap: spacing.sm },
