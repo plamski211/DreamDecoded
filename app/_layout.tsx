@@ -16,6 +16,7 @@ import {
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono';
 import * as SplashScreen from 'expo-splash-screen';
 import { supabase, hasCredentials, fetchDreams } from '@/lib/supabase';
+import { initDB, loadDreams as loadLocalDreams } from '@/lib/storage';
 import { useAppStore } from '@/lib/store';
 import { ThemeProvider, useTheme } from '@/lib/ThemeContext';
 
@@ -52,6 +53,14 @@ function RootLayoutInner() {
   const setAuthLoading = useAppStore((s) => s.setAuthLoading);
   const setDreams = useAppStore((s) => s.setDreams);
 
+  // Always load local data first — fast, offline, no auth required
+  useEffect(() => {
+    initDB()
+      .then(() => loadLocalDreams())
+      .then((local) => { if (local.length > 0) setDreams(local); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!hasCredentials) {
       setAuthLoading(false);
@@ -68,29 +77,47 @@ function RootLayoutInner() {
     }
 
     let subscription: { unsubscribe: () => void } | undefined;
-    try {
-      supabase.auth.getSession().then(async ({ data: { session } }) => {
-        if (session) {
-          setSession({ access_token: session.access_token });
-          try { await loadUserData(session.user.id); } catch {}
-          setAuthLoading(false);
-        } else {
-          setAuthLoading(false);
-        }
-      }).catch(() => setAuthLoading(false));
+    let resolved = false;
 
-      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        if (session) {
-          setSession({ access_token: session.access_token });
-          try { await loadUserData(session.user.id); } catch {}
-        } else {
+    const resolve = () => {
+      if (!resolved) {
+        resolved = true;
+        setAuthLoading(false);
+      }
+    };
+
+    // Supabase v2: onAuthStateChange always fires INITIAL_SESSION first (from storage),
+    // before getSession() resolves. Using it as the single initialization gate prevents
+    // the race condition where getSession() returns null on first page load.
+    try {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'INITIAL_SESSION') {
+          if (session) {
+            setSession({ access_token: session.access_token });
+            try { await loadUserData(session.user.id); } catch {}
+          }
+          resolve();
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (session) {
+            setSession({ access_token: session.access_token });
+            try { await loadUserData(session.user.id); } catch {}
+          }
+        } else if (event === 'SIGNED_OUT') {
           setSession(null);
           setUser(null);
         }
       });
       subscription = data.subscription;
-    } catch { setAuthLoading(false); }
-    return () => subscription?.unsubscribe();
+    } catch { resolve(); }
+
+    // Safety fallback: if INITIAL_SESSION never fires (shouldn't happen in Supabase v2),
+    // unblock auth loading after 5 seconds so the app doesn't hang.
+    const timeout = setTimeout(resolve, 5000);
+
+    return () => {
+      clearTimeout(timeout);
+      subscription?.unsubscribe();
+    };
   }, []);
 
   useProtectedRoute();
