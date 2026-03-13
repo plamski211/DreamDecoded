@@ -51,15 +51,6 @@ function RootLayoutInner() {
   const setSession = useAppStore((s) => s.setSession);
   const setUser = useAppStore((s) => s.setUser);
   const setAuthLoading = useAppStore((s) => s.setAuthLoading);
-  const setDreams = useAppStore((s) => s.setDreams);
-
-  // Always load local data first — fast, offline, no auth required
-  useEffect(() => {
-    initDB()
-      .then(() => loadLocalDreams())
-      .then((local) => { if (local.length > 0) setDreams(local); })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (!hasCredentials) {
@@ -73,7 +64,7 @@ function RootLayoutInner() {
         fetchDreams(userId),
       ]);
       if (profileResult.data) setUser(profileResult.data);
-      if (dreams.length > 0) setDreams(dreams);
+      if (dreams.length > 0) useAppStore.getState().setDreams(dreams);
     }
 
     let subscription: { unsubscribe: () => void } | undefined;
@@ -145,6 +136,7 @@ function RootLayoutInner() {
 
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
 
   const [fontsLoaded, fontError] = useFonts({
     'DMSans-Regular': DMSans_400Regular,
@@ -156,14 +148,24 @@ export default function RootLayout() {
     'SpaceMono-Regular': SpaceMono_400Regular,
   });
 
+  // Load local data (dreams + preferences) before showing the app
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    const setDreams = useAppStore.getState().setDreams;
+    initDB()
+      .then(() => loadLocalDreams())
+      .then((local) => { if (local.length > 0) setDreams(local); })
+      .catch(() => {})
+      .finally(() => setDataReady(true));
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && dataReady) {
       setAppReady(true);
       if (Platform.OS !== 'web') {
         SplashScreen.hideAsync().catch(() => {});
       }
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, dataReady]);
 
   if (!appReady) return null;
 
