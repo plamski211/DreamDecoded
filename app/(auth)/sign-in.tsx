@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import Button from '@/components/Button';
 import AlertModal, { type AlertConfig } from '@/components/AlertModal';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { isGoogleAuthAvailable, useGoogleAuth, signInWithGoogleIdToken } from '@/lib/googleAuth';
@@ -69,11 +70,9 @@ export default function SignInScreen() {
               <TextInput style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]} placeholder="Your password" placeholderTextColor={c.textTertiary} secureTextEntry autoComplete="password" textContentType="password" value={password} onChangeText={setPassword} />
             </View>
           </View>
-          <Pressable onPress={handleSignIn} disabled={loading} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-            <View style={[styles.signInBtn, { backgroundColor: c.accent }, loading && { opacity: 0.6 }]}>
-              <Text style={[styles.signInBtnText, { color: c.bg, fontFamily: theme.fonts.heading }]}>{loading ? 'Signing in...' : 'Sign In'}</Text>
-            </View>
-          </Pressable>
+          <View style={styles.btnWrap}>
+            <Button title={loading ? 'Signing in...' : 'Sign In'} onPress={handleSignIn} loading={loading} disabled={loading} />
+          </View>
           {isGoogleAuthAvailable && (
             <>
               <View style={styles.divider}>
@@ -102,8 +101,7 @@ const styles = StyleSheet.create({
   inputGroup: { gap: spacing.xs },
   label: { fontSize: fs.caption },
   input: { height: 52, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, fontSize: fs.body },
-  signInBtn: { height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
-  signInBtnText: { fontSize: fs.body },
+  btnWrap: { marginTop: spacing.sm },
   divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: fs.caption },

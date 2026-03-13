@@ -1,8 +1,8 @@
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { BookOpen, Sparkles, User } from 'lucide-react-native';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing } from '@/lib/theme';
+import { spacing, fontSize as fs } from '@/lib/theme';
 
 export default function TabLayout() {
   const { theme } = useTheme();
@@ -33,16 +33,20 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => (
+          title: 'Record',
+          tabBarIcon: ({ color, focused }) => (
             <View style={styles.orbContainer}>
-              <View style={[styles.orb, { backgroundColor: c.accent }]} />
-              {color === c.tabActive && (
+              <View style={[styles.orb, { backgroundColor: color }]} />
+              {focused && (
                 <View style={[styles.orbGlow, { backgroundColor: c.accent }]} />
               )}
             </View>
           ),
-          tabBarLabel: () => null,
+          tabBarLabelStyle: {
+            fontFamily: theme.fonts.caption,
+            fontSize: 10,
+            marginTop: -2,
+          },
         }}
       />
       <Tabs.Screen
@@ -82,18 +86,18 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 6,
   },
   orb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
   },
   orbGlow: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    opacity: 0.15,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    opacity: 0.12,
   },
 });

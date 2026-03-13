@@ -4,9 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import { spacing, radius, fontSize as fs, SCREEN_PADDING, elevation } from '@/lib/theme';
 import { askDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
+import FadeInView from '@/components/FadeInView';
 import AskBubble, { TypingIndicator } from '@/components/AskBubble';
 import type { ConversationMessage } from '@/types';
 
@@ -70,16 +71,26 @@ export default function AskDreamScreen() {
               <Text style={[styles.emptyChatText, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Ask anything about your dream</Text>
               <View style={styles.suggestions}>
                 {SUGGESTED_QUESTIONS.map((q, i) => (
-                  <Pressable key={i} onPress={() => sendMessage(q)} style={({ pressed }) => [styles.suggestionPill, { backgroundColor: c.surface, borderColor: c.border }, pressed && { opacity: 0.7 }]}>
-                    <Text style={[styles.suggestionText, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>{q}</Text>
-                  </Pressable>
+                  <FadeInView key={i} delay={200 + i * 100} variant="scale">
+                    <Pressable
+                      onPress={() => sendMessage(q)}
+                      style={({ pressed }) => [
+                        styles.suggestionPill,
+                        { backgroundColor: c.surface, borderColor: c.border },
+                        elevation.sm,
+                        pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
+                      ]}
+                    >
+                      <Text style={[styles.suggestionText, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>{q}</Text>
+                    </Pressable>
+                  </FadeInView>
                 ))}
               </View>
             </View>
           }
           ListFooterComponent={isTyping ? <TypingIndicator /> : null}
         />
-        <View style={[styles.inputBar, { borderTopColor: c.borderSubtle }]}>
+        <View style={[styles.inputBar, { borderTopColor: c.borderSubtle, backgroundColor: c.bg }]}>
           <TextInput
             style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]}
             placeholder="Ask about your dream..."
@@ -89,7 +100,16 @@ export default function AskDreamScreen() {
             multiline
             maxLength={500}
           />
-          <Pressable onPress={() => sendMessage(input)} disabled={!input.trim() || isTyping} style={[styles.sendBtn, { backgroundColor: c.accent }, (!input.trim() || isTyping) && { opacity: 0.4 }]}>
+          <Pressable
+            onPress={() => sendMessage(input)}
+            disabled={!input.trim() || isTyping}
+            style={({ pressed }) => [
+              styles.sendBtn,
+              { backgroundColor: c.accent },
+              (!input.trim() || isTyping) && { opacity: 0.4 },
+              pressed && input.trim() && !isTyping && { transform: [{ scale: 0.92 }] },
+            ]}
+          >
             <Send size={18} color={c.bg} strokeWidth={2} />
           </Pressable>
         </View>
@@ -107,11 +127,11 @@ const styles = StyleSheet.create({
   title: { fontSize: fs.body },
   subtitle: { fontSize: fs.tiny },
   messageList: { paddingHorizontal: SCREEN_PADDING, paddingVertical: spacing.md, flexGrow: 1 },
-  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxxl, gap: spacing.lg },
+  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxxl, gap: spacing.xl },
   emptyChatText: { fontSize: fs.body },
   suggestions: { gap: spacing.sm, alignItems: 'center' },
-  suggestionPill: { borderWidth: 1, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  suggestionText: { fontSize: fs.caption },
+  suggestionPill: { borderWidth: 1, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  suggestionText: { fontSize: fs.caption, textAlign: 'center' },
   inputBar: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: SCREEN_PADDING, paddingVertical: spacing.sm, borderTopWidth: 1, gap: spacing.sm },
   input: { flex: 1, minHeight: 44, maxHeight: 100, borderRadius: radius.lg, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: fs.body },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },

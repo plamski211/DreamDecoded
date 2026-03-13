@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { View, Animated, StyleSheet, Pressable, Alert, Linking, Platform, Easing, Text } from 'react-native';
 import { useTheme } from '@/lib/ThemeContext';
 import { formatDuration } from '@/lib/dreamAnalysis';
@@ -10,9 +10,10 @@ import BreathingRing from './BreathingRing';
 
 interface MorningCircleProps {
   onDreamRecorded?: (result: { uri: string; duration: number }) => void;
+  tintColor?: string;
 }
 
-export default function MorningCircle({ onDreamRecorded }: MorningCircleProps) {
+export default function MorningCircle({ onDreamRecorded, tintColor }: MorningCircleProps) {
   const { theme } = useTheme();
   const c = theme.colors;
   const isRecording = useAppStore((s) => s.isRecording);
@@ -23,8 +24,18 @@ export default function MorningCircle({ onDreamRecorded }: MorningCircleProps) {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioLevel = useRef(new Animated.Value(0)).current;
+  const orbSizeAnim = useRef(new Animated.Value(220)).current;
 
-  const orbSize = isRecording ? 280 : isProcessing ? 180 : 220;
+  const targetSize = isRecording ? 280 : isProcessing ? 180 : 220;
+
+  useEffect(() => {
+    Animated.spring(orbSizeAnim, {
+      toValue: targetSize,
+      damping: 18,
+      stiffness: 120,
+      useNativeDriver: false,
+    }).start();
+  }, [targetSize]);
 
   useEffect(() => {
     if (isRecording) {
@@ -91,16 +102,17 @@ export default function MorningCircle({ onDreamRecorded }: MorningCircleProps) {
     <View style={styles.container}>
       {!isProcessing && (
         <BreathingRing
-          size={orbSize + 40}
+          size={targetSize + 40}
           color={isRecording ? c.error : c.orbRing}
         />
       )}
       <Pressable onPress={handleTap}>
         <GlowOrb
-          size={orbSize}
+          size={targetSize}
           breathing={!isProcessing}
           breathingDuration={isRecording ? 1500 : undefined}
           audioLevel={isRecording ? audioLevel : undefined}
+          tintColor={tintColor}
         />
       </Pressable>
       {isRecording && (

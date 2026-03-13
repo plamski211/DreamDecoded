@@ -7,7 +7,8 @@ import FadeInView from '@/components/FadeInView';
 import { purchasePackage, restorePurchases } from '@/lib/subscription';
 import { useAppStore } from '@/lib/store';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import { spacing, radius, fontSize as fs, SCREEN_PADDING, elevation } from '@/lib/theme';
+import Button from '@/components/Button';
 
 const FEATURES = [
   { icon: Mic, label: 'Unlimited dream recordings' },
@@ -69,7 +70,7 @@ export default function PaywallScreen() {
         </FadeInView>
 
         <FadeInView delay={300} style={styles.plans}>
-          <Pressable onPress={() => setSelectedPlan('annual')} style={[styles.planCard, { borderColor: c.border, backgroundColor: c.surface }, selectedPlan === 'annual' && { borderColor: c.accent }]}>
+          <Pressable onPress={() => setSelectedPlan('annual')} style={[styles.planCard, { borderColor: c.border, backgroundColor: c.surface }, selectedPlan === 'annual' && { borderColor: c.accent, ...elevation.sm }]}>
             {selectedPlan === 'annual' && <View style={[styles.saveBadge, { backgroundColor: c.streak }]}><Text style={[styles.saveText, { color: c.bg, fontFamily: theme.fonts.body }]}>SAVE 40%</Text></View>}
             <View style={styles.planInfo}>
               <Text style={[styles.planName, { color: c.text, fontFamily: theme.fonts.heading }]}>Annual</Text>
@@ -80,7 +81,7 @@ export default function PaywallScreen() {
               {selectedPlan === 'annual' && <View style={[styles.radioInner, { backgroundColor: c.accent }]} />}
             </View>
           </Pressable>
-          <Pressable onPress={() => setSelectedPlan('monthly')} style={[styles.planCard, { borderColor: c.border, backgroundColor: c.surface }, selectedPlan === 'monthly' && { borderColor: c.accent }]}>
+          <Pressable onPress={() => setSelectedPlan('monthly')} style={[styles.planCard, { borderColor: c.border, backgroundColor: c.surface }, selectedPlan === 'monthly' && { borderColor: c.accent, ...elevation.sm }]}>
             <View style={styles.planInfo}>
               <Text style={[styles.planName, { color: c.text, fontFamily: theme.fonts.heading }]}>Monthly</Text>
               <Text style={[styles.planPrice, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>$6.99/month</Text>
@@ -92,11 +93,9 @@ export default function PaywallScreen() {
         </FadeInView>
 
         <FadeInView delay={400} style={styles.ctaArea}>
-          <Pressable onPress={handlePurchase} disabled={loading} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-            <View style={[styles.ctaBtn, { backgroundColor: c.accent }, loading && { opacity: 0.6 }]}>
-              <Text style={[styles.ctaText, { color: c.bg, fontFamily: theme.fonts.heading }]}>{loading ? 'Processing...' : 'Start Free Trial — 7 days free'}</Text>
-            </View>
-          </Pressable>
+          <View style={styles.ctaWrap}>
+            <Button title={loading ? 'Processing...' : 'Start Free Trial — 7 days free'} onPress={handlePurchase} loading={loading} disabled={loading} />
+          </View>
           <Pressable onPress={handleRestore} disabled={loading}><Text style={[styles.restoreText, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Restore Purchases</Text></Pressable>
           <Text style={[styles.legalText, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Cancel anytime. Terms of Service · Privacy Policy</Text>
         </FadeInView>
@@ -128,8 +127,7 @@ const styles = StyleSheet.create({
   radioOuter: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioInner: { width: 12, height: 12, borderRadius: 6 },
   ctaArea: { gap: spacing.md, alignItems: 'center' },
-  ctaBtn: { height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', width: '100%' },
-  ctaText: { fontSize: fs.body },
+  ctaWrap: { width: '100%' },
   restoreText: { fontSize: fs.caption },
   legalText: { fontSize: fs.tiny, textAlign: 'center', marginTop: spacing.sm },
 });

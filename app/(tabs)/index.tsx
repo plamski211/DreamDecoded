@@ -1,11 +1,14 @@
-import { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Alert, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import type { Dream } from '@/types';
 import FadeInView from '@/components/FadeInView';
+import DreamReveal from '@/components/DreamReveal';
+import StreakCelebration, { isMilestone } from '@/components/StreakCelebration';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
-import { getGreeting } from '@/lib/dreamAnalysis';
+import { getGreeting, getMoodGradient } from '@/lib/dreamAnalysis';
 import { processDream } from '@/lib/ai';
 import { useAppStore } from '@/lib/store';
 import { sendDreamProcessedNotification } from '@/lib/notifications';
@@ -14,6 +17,7 @@ import MorningCircle from '@/components/MorningCircle';
 import DreamCard from '@/components/DreamCard';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { theme, themeKey } = useTheme();
   const c = theme.colors;
   const user = useAppStore((s) => s.user);
@@ -24,9 +28,20 @@ export default function HomeScreen() {
   const addDream = useAppStore((s) => s.addDream);
   const setDecodedDream = useAppStore((s) => s.setDecodedDream);
 
+  const [revealDream, setRevealDream] = useState<Dream | null>(null);
+  const [celebrateStreak, setCelebrateStreak] = useState<number | null>(null);
+
   const greeting = getGreeting(themeKey, user?.name);
   const lastDream = dreams[0] ?? null;
   const streak = user?.streak_current ?? 0;
+
+  // Contextual orb tint — based on recent dream moods
+  const orbTintColor = useMemo(() => {
+    if (dreams.length === 0) return undefined;
+    const recentMood = dreams[0]?.moods[0]?.mood;
+    if (!recentMood) return undefined;
+    return getMoodGradient(recentMood)[0];
+  }, [dreams]);
 
   const recurringSymbols = useMemo(() => {
     const counts = new Map<string, number>();
@@ -58,12 +73,12 @@ export default function HomeScreen() {
         addDream(fullDream);
         setDecodedDream(fullDream);
 
+        let newStreak = streak;
         if (user) {
           const today = new Date().toISOString().split('T')[0];
           const lastDate = user.last_dream_date?.split('T')[0] ?? '';
           const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-          let newStreak = user.streak_current;
-          if (lastDate === yesterday) { newStreak += 1; } else if (lastDate !== today) { newStreak = 1; }
+          if (lastDate === yesterday) { newStreak = user.streak_current + 1; } else if (lastDate !== today) { newStreak = 1; }
           const newLongest = Math.max(user.streak_longest, newStreak);
           const streakUpdates = { streak_current: newStreak, streak_longest: newLongest, last_dream_date: new Date().toISOString() };
           useAppStore.getState().setUser({ ...user, ...streakUpdates });
@@ -73,6 +88,15 @@ export default function HomeScreen() {
         if (fullDream.title && Platform.OS !== 'web') {
           sendDreamProcessedNotification(fullDream.title).catch(() => {});
         }
+
+        // Show dream reveal
+        setRevealDream(fullDream);
+
+        // Check for streak milestone celebration
+        if (newStreak > 0 && isMilestone(newStreak)) {
+          // Will show after reveal is dismissed
+          setCelebrateStreak(newStreak);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         if (Platform.OS === 'web') { window.alert(msg); } else { Alert.alert('Dream Recording', msg); }
@@ -80,38 +104,62 @@ export default function HomeScreen() {
         setProcessing(false);
       }
     },
-    [user, recurringSymbols]
+    [user, recurringSymbols, streak]
   );
+
+  const handleRevealDismiss = useCallback(() => {
+    const dream = revealDream;
+    setRevealDream(null);
+    if (dream) {
+      router.push(`/dream/${dream.id}`);
+    }
+    // Show streak celebration after a brief delay
+    if (celebrateStreak) {
+      setTimeout(() => {}, 300);
+    }
+  }, [revealDream, celebrateStreak, router]);
+
+  const handleStreakComplete = useCallback(() => {
+    setCelebrateStreak(null);
+  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
+      {/* Header — greeting and streak */}
       <FadeInView delay={100} style={styles.header}>
         <Text style={[styles.greeting, { color: c.text, fontFamily: theme.fonts.heading, letterSpacing: theme.headingStyle.letterSpacing }]}>
           {greeting}
         </Text>
         {streak > 0 && (
-          <Text style={[styles.streak, { color: c.streak, fontFamily: theme.fonts.body }]}>
-            {streak} day streak
-          </Text>
+          <View style={styles.streakRow}>
+            <View style={[styles.streakDot, { backgroundColor: c.streak }]} />
+            <Text style={[styles.streak, { color: c.streak, fontFamily: theme.fonts.body }]}>
+              {streak} day streak
+            </Text>
+          </View>
         )}
       </FadeInView>
 
+      {/* Center — the orb takes priority */}
       <View style={styles.circleArea}>
-        <MorningCircle onDreamRecorded={handleDreamRecorded} />
+        <MorningCircle onDreamRecorded={handleDreamRecorded} tintColor={orbTintColor} />
         {!isProcessing && !isRecording && (
-          <FadeInView delay={300}>
+          <FadeInView delay={300} variant="fade">
             <Text style={[styles.hint, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>
               Tap to record your dream
             </Text>
           </FadeInView>
         )}
         {isProcessing && (
-          <Text style={[styles.hint, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Decoding your dream...</Text>
+          <FadeInView delay={0} variant="fade">
+            <Text style={[styles.hint, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Decoding your dream...</Text>
+          </FadeInView>
         )}
       </View>
 
-      {lastDream && (
-        <FadeInView delay={500} style={styles.lastDream}>
+      {/* Last dream — below the fold, scrollable */}
+      {lastDream && !isRecording && !isProcessing && (
+        <FadeInView delay={500} variant="slide" style={styles.lastDream}>
           <Text style={[styles.lastDreamLabel, {
             color: c.textTertiary,
             fontFamily: theme.fonts.caption,
@@ -124,17 +172,29 @@ export default function HomeScreen() {
           <DreamCard dream={lastDream} />
         </FadeInView>
       )}
+
+      {/* Dream reveal overlay */}
+      {revealDream && (
+        <DreamReveal dream={revealDream} onDismiss={handleRevealDismiss} />
+      )}
+
+      {/* Streak celebration overlay */}
+      {celebrateStreak && (
+        <StreakCelebration streak={celebrateStreak} onComplete={handleStreakComplete} />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: SCREEN_PADDING },
-  header: { paddingTop: spacing.md, gap: spacing.xs },
-  greeting: { fontSize: fs.heading },
+  header: { paddingTop: spacing.lg, gap: spacing.xs },
+  greeting: { fontSize: fs.title },
+  streakRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  streakDot: { width: 6, height: 6, borderRadius: 3 },
   streak: { fontSize: fs.caption },
   circleArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  hint: { fontSize: fs.caption, marginTop: spacing.sm },
+  hint: { fontSize: fs.caption, marginTop: spacing.md },
   lastDream: { paddingBottom: spacing.lg, gap: spacing.sm },
   lastDreamLabel: {},
 });

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable, FlatList, ViewToken } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, FlatList, ViewToken } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { selectionChanged } from '@/lib/haptics';
@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, lineHeight, SCREEN_PADDING } from '@/lib/theme';
 import GlowOrb from '@/components/GlowOrb';
+import Button from '@/components/Button';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const viewabilityConfig = { viewAreaCoveragePercentThreshold: 50 };
@@ -74,11 +75,10 @@ export default function OnboardingScreen() {
             <View key={i} style={[styles.dot, { backgroundColor: c.textTertiary, opacity: 0.3 }, currentStep === i && { backgroundColor: c.accent, opacity: 1, width: 24 }]} />
           ))}
         </View>
-        <Pressable onPress={handleNext} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-          <View style={[styles.ctaBtn, { backgroundColor: c.accent }]}>
-            <Text style={[styles.ctaText, { color: c.bg, fontFamily: theme.fonts.heading }]}>{currentStep === STEPS.length - 1 ? 'Start Dreaming' : 'Continue'}</Text>
-          </View>
-        </Pressable>
+        <Button
+          title={currentStep === STEPS.length - 1 ? 'Start Dreaming' : 'Continue'}
+          onPress={handleNext}
+        />
       </View>
     </SafeAreaView>
   );
@@ -94,6 +94,4 @@ const styles = StyleSheet.create({
   footer: { paddingHorizontal: SCREEN_PADDING, paddingBottom: spacing.xl, gap: spacing.lg },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  ctaBtn: { height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { fontSize: fs.body },
 });

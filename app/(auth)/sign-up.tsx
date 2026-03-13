@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/ThemeContext';
 import { spacing, radius, fontSize as fs, lineHeight, SCREEN_PADDING } from '@/lib/theme';
+import Button from '@/components/Button';
 import AlertModal, { type AlertConfig } from '@/components/AlertModal';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { isGoogleAuthAvailable, useGoogleAuth, signInWithGoogleIdToken } from '@/lib/googleAuth';
@@ -87,11 +88,9 @@ export default function SignUpScreen() {
                 <TextInput style={[styles.input, { backgroundColor: c.surface, borderColor: c.border, color: c.text, fontFamily: theme.fonts.body }]} placeholder="At least 8 characters" placeholderTextColor={c.textTertiary} secureTextEntry autoComplete="new-password" textContentType="newPassword" value={password} onChangeText={setPassword} />
               </View>
             </View>
-            <Pressable onPress={handleSignUp} disabled={loading} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-              <View style={[styles.signUpBtn, { backgroundColor: c.accent }, loading && { opacity: 0.6 }]}>
-                <Text style={[styles.signUpBtnText, { color: c.bg, fontFamily: theme.fonts.heading }]}>{loading ? 'Creating account...' : 'Create Account'}</Text>
-              </View>
-            </Pressable>
+            <View style={styles.btnWrap}>
+              <Button title={loading ? 'Creating account...' : 'Create Account'} onPress={handleSignUp} loading={loading} disabled={loading} />
+            </View>
             {isGoogleAuthAvailable && (
               <>
                 <View style={styles.divider}>
@@ -123,8 +122,7 @@ const styles = StyleSheet.create({
   inputGroup: { gap: spacing.xs },
   label: { fontSize: fs.caption },
   input: { height: 52, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, fontSize: fs.body },
-  signUpBtn: { height: 56, borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
-  signUpBtnText: { fontSize: fs.body },
+  btnWrap: { marginTop: spacing.sm },
   divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: fs.caption },

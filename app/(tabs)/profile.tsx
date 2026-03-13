@@ -3,12 +3,13 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Linking } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, Brain, Clock, Globe, Download, Shield, CreditCard, HelpCircle, Info, ChevronRight, LogOut, Flame, Trophy, Moon, Check, Heart } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import Button from '@/components/Button';
 import { format } from 'date-fns';
 import { supabase, hasCredentials, updateProfile } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { requestNotificationPermission, scheduleMorningReminder, cancelMorningReminder, getNotificationStatus } from '@/lib/notifications';
 import { useTheme } from '@/lib/ThemeContext';
-import { themes, spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import { themes, spacing, radius, fontSize as fs, SCREEN_PADDING, elevation } from '@/lib/theme';
 import type { ThemeKey } from '@/lib/theme';
 import AlertModal, { type AlertConfig } from '@/components/AlertModal';
 
@@ -181,8 +182,8 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={[styles.pageTitle, { color: c.text, fontFamily: theme.fonts.heading, letterSpacing: theme.headingStyle.letterSpacing }]}>Profile</Text>
 
-        {/* User Info */}
-        <FadeInView delay={100} style={styles.userCard}>
+        {/* User Info + Stats */}
+        <FadeInView delay={100} variant="fade" style={styles.userCard}>
           <View style={[styles.avatarRing, { borderColor: c.accent }]}>
             <View style={[styles.avatar, { backgroundColor: c.accent }]}>
               <Text style={[styles.initials, { color: c.bg, fontFamily: theme.fonts.heading }]}>{initials}</Text>
@@ -193,22 +194,20 @@ export default function ProfileScreen() {
             {dreams.length > 0 ? `${dreams.length} dream${dreams.length !== 1 ? 's' : ''} decoded` : 'Begin your journey'}
           </Text>
           {memberSince ? <Text style={[styles.memberSince, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>Dreaming since {memberSince}</Text> : null}
-        </FadeInView>
 
-        {/* Stats Row */}
-        <FadeInView delay={200}>
+          {/* Stats Row (integrated into user card) */}
           <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={[styles.statCard, { backgroundColor: c.surface, borderColor: c.border }, elevation.sm]}>
               <Flame size={20} color={c.streak} strokeWidth={1.5} />
               <Text style={[styles.statNumber, { color: c.text, fontFamily: theme.fonts.heading }]}>{user?.streak_current ?? 0}</Text>
               <Text style={[styles.statLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Current</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={[styles.statCard, { backgroundColor: c.surface, borderColor: c.border }, elevation.sm]}>
               <Trophy size={20} color={c.streak} strokeWidth={1.5} />
               <Text style={[styles.statNumber, { color: c.text, fontFamily: theme.fonts.heading }]}>{user?.streak_longest ?? 0}</Text>
               <Text style={[styles.statLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Longest</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <View style={[styles.statCard, { backgroundColor: c.surface, borderColor: c.border }, elevation.sm]}>
               <Moon size={20} color={c.accent} strokeWidth={1.5} />
               <Text style={[styles.statNumber, { color: c.text, fontFamily: theme.fonts.heading }]}>{dreams.length}</Text>
               <Text style={[styles.statLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Total</Text>
@@ -217,7 +216,7 @@ export default function ProfileScreen() {
         </FadeInView>
 
         {/* Theme Switcher */}
-        <FadeInView delay={250} style={styles.themeSwitcher}>
+        <FadeInView delay={250} variant="scale" style={styles.themeSwitcher}>
           <Text style={[styles.settingsGroupLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption, letterSpacing: theme.labelStyle.letterSpacing, textTransform: theme.labelStyle.textTransform, fontSize: theme.labelStyle.fontSize }]}>Theme</Text>
           <View style={styles.themeOptions}>
             {THEME_OPTIONS.map((opt) => {
@@ -230,13 +229,14 @@ export default function ProfileScreen() {
                   style={[
                     styles.themeCard,
                     { backgroundColor: t.colors.bg, borderColor: isActive ? c.accent : c.border },
-                    isActive && { borderWidth: 2 },
+                    isActive && { borderWidth: 2, ...elevation.sm },
                   ]}
                 >
                   {/* Accent bar at top */}
                   <View style={[styles.themeAccentBar, { backgroundColor: t.colors.accent }]} />
                   <View style={styles.themeCardContent}>
                     <Text style={[styles.themeName, { color: t.colors.text, fontFamily: theme.fonts.caption }]}>{opt.name}</Text>
+                    <Text style={[styles.themeDescription, { color: t.colors.textTertiary, fontFamily: theme.fonts.caption }]}>{t.description}</Text>
                     {isActive && <Check size={14} color={c.accent} strokeWidth={2} />}
                   </View>
                 </Pressable>
@@ -246,7 +246,7 @@ export default function ProfileScreen() {
         </FadeInView>
 
         {/* Settings Groups */}
-        <FadeInView delay={300}>
+        <FadeInView delay={300} variant="slide">
           {renderSettingsGroup('Preferences', PREFERENCES_SETTINGS)}
           {renderSettingsGroup('Data & Privacy', DATA_SETTINGS)}
           {renderSettingsGroup('Support', SUPPORT_SETTINGS)}
@@ -259,6 +259,7 @@ export default function ProfileScreen() {
             style={({ pressed }) => [
               styles.coffeeBtn,
               { backgroundColor: c.surface, borderColor: c.border },
+              elevation.sm,
               pressed && { opacity: 0.7 },
             ]}
           >
@@ -273,17 +274,7 @@ export default function ProfileScreen() {
 
         {/* Sign Out */}
         <FadeInView delay={400}>
-          <Pressable
-            onPress={handleSignOut}
-            style={({ pressed }) => [
-              styles.signOutBtn,
-              { borderColor: c.error },
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <LogOut size={18} color={c.error} strokeWidth={1.5} />
-            <Text style={[styles.signOutText, { color: c.error, fontFamily: theme.fonts.body }]}>Sign Out</Text>
-          </Pressable>
+          <Button title="Sign Out" onPress={handleSignOut} variant="destructive" />
         </FadeInView>
 
         <Text style={[styles.version, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>DreamDecode v1.0.0</Text>
@@ -316,7 +307,7 @@ const styles = StyleSheet.create({
   memberSince: { fontSize: fs.tiny },
 
   // Stats row
-  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  statsRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, width: '100%' },
   statCard: {
     flex: 1,
     alignItems: 'center',
@@ -333,7 +324,7 @@ const styles = StyleSheet.create({
   themeOptions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   themeCard: {
     flex: 1,
-    height: 72,
+    height: 84,
     borderRadius: radius.md,
     borderWidth: 1,
     overflow: 'hidden',
@@ -343,9 +334,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: 2,
   },
   themeName: { fontSize: fs.tiny },
+  themeDescription: { fontSize: fs.micro, textAlign: 'center' },
 
   // Settings groups
   settingsGroup: { marginBottom: spacing.lg },
@@ -370,18 +362,6 @@ const styles = StyleSheet.create({
   coffeeBtnContent: { flex: 1, gap: 2 },
   coffeeBtnTitle: { fontSize: fs.body },
   coffeeBtnSub: { fontSize: fs.tiny },
-
-  // Sign out
-  signOutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-  },
-  signOutText: { fontSize: fs.body },
 
   // Version
   version: { fontSize: fs.micro, textAlign: 'center', marginTop: spacing.md },

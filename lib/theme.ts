@@ -146,12 +146,12 @@ export const themes: Record<ThemeKey, ThemeConfig> = {
       ringWidth:       1.5,
     },
     headingStyle: {
-      letterSpacing: -0.5,
+      letterSpacing: -0.8,
     },
     labelStyle: {
       letterSpacing: 2,
       textTransform: 'uppercase',
-      fontSize:      10,
+      fontSize:      11,
     },
   },
 
@@ -282,12 +282,12 @@ export const themes: Record<ThemeKey, ThemeConfig> = {
       ringWidth:       1.5,
     },
     headingStyle: {
-      letterSpacing: -0.3,
+      letterSpacing: -0.5,
     },
     labelStyle: {
       letterSpacing: 1.5,
       textTransform: 'uppercase',
-      fontSize:      10,
+      fontSize:      11,
     },
   },
 
@@ -355,7 +355,7 @@ export const themes: Record<ThemeKey, ThemeConfig> = {
     labelStyle: {
       letterSpacing: 1.5,
       textTransform: 'uppercase',
-      fontSize:      10,
+      fontSize:      11,
     },
   },
 };
@@ -400,3 +400,56 @@ export const lineHeight = {
 } as const;
 
 export const SCREEN_PADDING = 20;
+
+// ============================================================
+// ELEVATION (card hierarchy)
+// ============================================================
+
+export const elevation = {
+  none: {},
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+} as const;
+
+// ============================================================
+// ANIMATION TIMING
+// ============================================================
+
+export const animation = {
+  fast: 150,
+  normal: 300,
+  slow: 500,
+  spring: { damping: 15, stiffness: 150 },
+  springBouncy: { damping: 12, stiffness: 180 },
+} as const;
+
+// ============================================================
+// OPACITY TOKENS
+// ============================================================
+
+export const opacity = {
+  disabled: 0.5,
+  pressed: 0.8,
+  muted: 0.6,
+  subtle: 0.12,
+  hover: 0.04,
+} as const;

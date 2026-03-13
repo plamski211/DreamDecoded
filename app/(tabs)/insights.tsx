@@ -2,13 +2,14 @@ import { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { TrendingUp, Repeat, FileText, Link2, AlertCircle, RefreshCw } from 'lucide-react-native';
+import { TrendingUp, Repeat, FileText, Link2, AlertCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react-native';
 import FadeInView from '@/components/FadeInView';
+import Section from '@/components/Section';
 import AlertModal, { type AlertConfig } from '@/components/AlertModal';
 import Svg, { Circle } from 'react-native-svg';
 import { subDays, isAfter, format } from 'date-fns';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import { spacing, radius, fontSize as fs, SCREEN_PADDING, elevation } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import SymbolChip from '@/components/SymbolChip';
@@ -69,6 +70,11 @@ export default function InsightsScreen() {
   const [reportLoading, setReportLoading] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<AlertConfig | null>(null);
+
+  // Collapsible section states
+  const [connectionsExpanded, setConnectionsExpanded] = useState(false);
+  const [reportExpanded, setReportExpanded] = useState(false);
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
 
   const showAlert = useCallback((config: AlertConfig) => {
     setAlertConfig(config);
@@ -226,8 +232,8 @@ export default function InsightsScreen() {
         <Text style={[styles.pageTitle, { color: c.text, fontFamily: theme.fonts.heading, letterSpacing: theme.headingStyle.letterSpacing }]}>Insights</Text>
 
         {/* Dream Health Score */}
-        <FadeInView delay={100}>
-          <View style={[styles.scoreCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <FadeInView delay={100} variant="scale">
+          <View style={[styles.scoreCard, { backgroundColor: c.surface, borderColor: c.border }, elevation.md]}>
             <View style={styles.scoreRing}>
               <Svg width={100} height={100} viewBox="0 0 100 100">
                 <Circle cx="50" cy="50" r="45" stroke={c.bg} strokeWidth="6" fill="none" />
@@ -245,12 +251,7 @@ export default function InsightsScreen() {
         </FadeInView>
 
         {/* Emotional Landscape */}
-        <FadeInView delay={200} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <TrendingUp size={18} color={c.accent} strokeWidth={1.5} />
-            <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Emotional Landscape</Text>
-          </View>
-
+        <Section icon={<TrendingUp size={18} color={c.accent} strokeWidth={1.5} />} title="Emotional Landscape" delay={200}>
           {totalDreams === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: c.surface, borderColor: c.border }]}>
               <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Record dreams to see your emotional landscape</Text>
@@ -259,50 +260,7 @@ export default function InsightsScreen() {
             <View style={styles.landscapeContainer}>
 
               {/* 7-Night Bar Chart */}
-              <View style={[styles.weekCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[styles.cardMiniLabel, {
-                  color: c.textTertiary,
-                  fontFamily: theme.fonts.caption,
-                  letterSpacing: theme.labelStyle.letterSpacing,
-                  textTransform: theme.labelStyle.textTransform,
-                  fontSize: theme.labelStyle.fontSize,
-                }]}>
-                  This Week
-                </Text>
-                <View style={styles.barsRow}>
-                  {sevenDayMoods.map((entry, i) => {
-                    const score = entry.mood ? (MOOD_SCORE[entry.mood.mood] ?? 0.5) : 0;
-                    const color = entry.mood ? (MOOD_COLOR[entry.mood.mood] ?? c.accent) : c.borderSubtle;
-                    const barH = entry.mood ? Math.max(Math.round(score * 56), 6) : 0;
-                    return (
-                      <View key={i} style={styles.barCol}>
-                        <View style={styles.emojiZone}>
-                          {entry.mood ? <Text style={styles.barEmoji}>{entry.mood.emoji}</Text> : null}
-                        </View>
-                        <View style={styles.barTrack}>
-                          {entry.mood ? (
-                            <View style={[styles.barFill, { height: barH, backgroundColor: color }]} />
-                          ) : (
-                            <View style={[styles.barEmpty, { backgroundColor: c.borderSubtle }]} />
-                          )}
-                        </View>
-                        <Text style={[styles.barDay, { color: entry.mood ? c.textSecondary : c.textTertiary, fontFamily: theme.fonts.caption }]}>
-                          {entry.label}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-                {/* Positivity scale labels */}
-                <View style={styles.scaleRow}>
-                  <Text style={[styles.scaleLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>fearful</Text>
-                  <View style={[styles.scaleLine, { backgroundColor: c.borderSubtle }]} />
-                  <Text style={[styles.scaleLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>joyful</Text>
-                </View>
-              </View>
-
-              {/* All-Time Mood Mix */}
-              {moodDistribution.length > 0 && (
+              <FadeInView delay={250} variant="slide">
                 <View style={[styles.weekCard, { backgroundColor: c.surface, borderColor: c.border }]}>
                   <Text style={[styles.cardMiniLabel, {
                     color: c.textTertiary,
@@ -311,39 +269,86 @@ export default function InsightsScreen() {
                     textTransform: theme.labelStyle.textTransform,
                     fontSize: theme.labelStyle.fontSize,
                   }]}>
-                    All-Time Mix
+                    This Week
                   </Text>
-                  {/* Stacked proportion bar */}
-                  <View style={[styles.stackedBar, { backgroundColor: c.bg }]}>
-                    {moodDistribution.map((m, i) => (
-                      <View
-                        key={m.mood}
-                        style={[
-                          styles.stackedSegment,
-                          {
-                            flex: m.pct,
-                            backgroundColor: m.color,
-                            borderTopLeftRadius: i === 0 ? radius.full : 0,
-                            borderBottomLeftRadius: i === 0 ? radius.full : 0,
-                            borderTopRightRadius: i === moodDistribution.length - 1 ? radius.full : 0,
-                            borderBottomRightRadius: i === moodDistribution.length - 1 ? radius.full : 0,
-                          },
-                        ]}
-                      />
-                    ))}
+                  <View style={styles.barsRow}>
+                    {sevenDayMoods.map((entry, i) => {
+                      const score = entry.mood ? (MOOD_SCORE[entry.mood.mood] ?? 0.5) : 0;
+                      const color = entry.mood ? (MOOD_COLOR[entry.mood.mood] ?? c.accent) : c.borderSubtle;
+                      const barH = entry.mood ? Math.max(Math.round(score * 56), 6) : 0;
+                      return (
+                        <View key={i} style={styles.barCol}>
+                          <View style={styles.emojiZone}>
+                            {entry.mood ? <Text style={styles.barEmoji}>{entry.mood.emoji}</Text> : null}
+                          </View>
+                          <View style={styles.barTrack}>
+                            {entry.mood ? (
+                              <View style={[styles.barFill, { height: barH, backgroundColor: color }]} />
+                            ) : (
+                              <View style={[styles.barEmpty, { backgroundColor: c.borderSubtle }]} />
+                            )}
+                          </View>
+                          <Text style={[styles.barDay, { color: entry.mood ? c.textSecondary : c.textTertiary, fontFamily: theme.fonts.caption }]}>
+                            {entry.label}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </View>
-                  {/* Legend */}
-                  <View style={styles.mixLegend}>
-                    {moodDistribution.slice(0, 5).map((m) => (
-                      <View key={m.mood} style={styles.legendItem}>
-                        <View style={[styles.legendDot, { backgroundColor: m.color }]} />
-                        <Text style={[styles.legendLabel, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
-                          {m.emoji} {capitalize(m.mood)} {Math.round(m.pct * 100)}%
-                        </Text>
-                      </View>
-                    ))}
+                  {/* Positivity scale labels */}
+                  <View style={styles.scaleRow}>
+                    <Text style={[styles.scaleLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>fearful</Text>
+                    <View style={[styles.scaleLine, { backgroundColor: c.borderSubtle }]} />
+                    <Text style={[styles.scaleLabel, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>joyful</Text>
                   </View>
                 </View>
+              </FadeInView>
+
+              {/* All-Time Mood Mix */}
+              {moodDistribution.length > 0 && (
+                <FadeInView delay={300} variant="slide">
+                  <View style={[styles.weekCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+                    <Text style={[styles.cardMiniLabel, {
+                      color: c.textTertiary,
+                      fontFamily: theme.fonts.caption,
+                      letterSpacing: theme.labelStyle.letterSpacing,
+                      textTransform: theme.labelStyle.textTransform,
+                      fontSize: theme.labelStyle.fontSize,
+                    }]}>
+                      All-Time Mix
+                    </Text>
+                    {/* Stacked proportion bar */}
+                    <View style={[styles.stackedBar, { backgroundColor: c.bg }]}>
+                      {moodDistribution.map((m, i) => (
+                        <View
+                          key={m.mood}
+                          style={[
+                            styles.stackedSegment,
+                            {
+                              flex: m.pct,
+                              backgroundColor: m.color,
+                              borderTopLeftRadius: i === 0 ? radius.full : 0,
+                              borderBottomLeftRadius: i === 0 ? radius.full : 0,
+                              borderTopRightRadius: i === moodDistribution.length - 1 ? radius.full : 0,
+                              borderBottomRightRadius: i === moodDistribution.length - 1 ? radius.full : 0,
+                            },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                    {/* Legend */}
+                    <View style={styles.mixLegend}>
+                      {moodDistribution.slice(0, 5).map((m) => (
+                        <View key={m.mood} style={styles.legendItem}>
+                          <View style={[styles.legendDot, { backgroundColor: m.color }]} />
+                          <Text style={[styles.legendLabel, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
+                            {m.emoji} {capitalize(m.mood)} {Math.round(m.pct * 100)}%
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </FadeInView>
               )}
 
               {/* Insight chips */}
@@ -374,29 +379,32 @@ export default function InsightsScreen() {
 
             </View>
           )}
-        </FadeInView>
+        </Section>
 
         {/* Recurring Symbols */}
-        <FadeInView delay={300} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Repeat size={18} color={c.accent} strokeWidth={1.5} />
-            <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Recurring Symbols</Text>
-          </View>
+        <Section icon={<Repeat size={18} color={c.accent} strokeWidth={1.5} />} title="Recurring Symbols" delay={300}>
           {recurringSymbols.length > 0 ? (
             <View style={styles.symbolsGrid}>{recurringSymbols.map((sym, i) => <SymbolChip key={i} symbol={sym} highlighted={sym.occurrence_count > 2} />)}</View>
           ) : (
             <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>Symbols from your dreams will appear here</Text>
           )}
-        </FadeInView>
+        </Section>
 
-        {/* Dream Connections */}
+        {/* Dream Connections — Collapsible */}
         {dreamConnections.length > 0 && (
-          <FadeInView delay={350} style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Link2 size={18} color={c.accent} strokeWidth={1.5} />
-              <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Dream Connections</Text>
-            </View>
-            {dreamConnections.map((conn) => (
+          <Section icon={<Link2 size={18} color={c.accent} strokeWidth={1.5} />} title="Dream Connections" delay={350}>
+            <Pressable
+              onPress={() => setConnectionsExpanded((prev) => !prev)}
+              style={({ pressed }) => [styles.collapsibleHeader, { backgroundColor: c.surface, borderColor: c.border }, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={[styles.collapsibleSummary, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
+                {dreamConnections.length} shared symbol{dreamConnections.length !== 1 ? 's' : ''} across your dreams
+              </Text>
+              {connectionsExpanded
+                ? <ChevronDown size={16} color={c.textTertiary} strokeWidth={1.5} />
+                : <ChevronRight size={16} color={c.textTertiary} strokeWidth={1.5} />}
+            </Pressable>
+            {connectionsExpanded && dreamConnections.map((conn) => (
               <View key={conn.symbol} style={[styles.connectionCard, { backgroundColor: c.surface, borderColor: c.border }]}>
                 <Text style={[styles.connectionSymbol, { color: c.text, fontFamily: theme.fonts.heading }]}>{conn.emoji} {conn.symbol}</Text>
                 <View style={styles.connectionDreams}>
@@ -408,53 +416,77 @@ export default function InsightsScreen() {
                 </View>
               </View>
             ))}
-          </FadeInView>
+          </Section>
         )}
 
-        {/* Weekly Report */}
-        <FadeInView delay={400} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <FileText size={18} color={c.accent} strokeWidth={1.5} />
-            <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Weekly Report</Text>
-          </View>
-          {weeklyReport ? (
-            <View style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]}>
-              <View style={styles.reportHeader}>
-                <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
-                <Pressable onPress={handleViewReport} disabled={reportLoading} style={styles.regenerateBtn} hitSlop={8}>
-                  {reportLoading
-                    ? <ActivityIndicator color={c.accent} size="small" />
-                    : <RefreshCw size={16} color={c.textTertiary} strokeWidth={1.5} />}
-                </Pressable>
-              </View>
-              <Text style={[styles.reportBody, { color: c.text, fontFamily: theme.fonts.body }]}>{weeklyReport}</Text>
-            </View>
-          ) : (
-            <Pressable style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]} onPress={handleViewReport} disabled={reportLoading}>
-              <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
-              {reportLoading ? (
-                <ActivityIndicator color={c.accent} style={{ marginVertical: spacing.sm }} />
-              ) : (
-                <Text style={[styles.reportSubtitle, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Tap to generate an AI summary of your dream patterns</Text>
-              )}
-            </Pressable>
-          )}
-        </FadeInView>
-
-        {/* Pattern Alerts */}
-        <FadeInView delay={500} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <AlertCircle size={18} color={c.accent} strokeWidth={1.5} />
-            <Text style={[styles.sectionTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Pattern Alerts</Text>
-          </View>
-          {patternAlerts.length > 0 ? (
-            <View style={styles.alertsList}>{patternAlerts.map((alert) => <PatternAlertCard key={alert.id} alert={alert} />)}</View>
-          ) : (
-            <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>
-              {totalDreams < 3 ? 'Record at least 3 dreams to start detecting patterns' : "We'll alert you when we detect recurring patterns"}
+        {/* Weekly Report — Collapsible */}
+        <Section icon={<FileText size={18} color={c.accent} strokeWidth={1.5} />} title="Weekly Report" delay={400}>
+          <Pressable
+            onPress={() => setReportExpanded((prev) => !prev)}
+            style={({ pressed }) => [styles.collapsibleHeader, { backgroundColor: c.surface, borderColor: c.border }, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={[styles.collapsibleSummary, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
+              {weeklyReport ? 'AI-generated summary of your dream week' : 'Tap to expand and generate a report'}
             </Text>
+            {reportExpanded
+              ? <ChevronDown size={16} color={c.textTertiary} strokeWidth={1.5} />
+              : <ChevronRight size={16} color={c.textTertiary} strokeWidth={1.5} />}
+          </Pressable>
+          {reportExpanded && (
+            <>
+              {weeklyReport ? (
+                <View style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]}>
+                  <View style={styles.reportHeader}>
+                    <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
+                    <Pressable onPress={handleViewReport} disabled={reportLoading} style={styles.regenerateBtn} hitSlop={8}>
+                      {reportLoading
+                        ? <ActivityIndicator color={c.accent} size="small" />
+                        : <RefreshCw size={16} color={c.textTertiary} strokeWidth={1.5} />}
+                    </Pressable>
+                  </View>
+                  <Text style={[styles.reportBody, { color: c.text, fontFamily: theme.fonts.body }]}>{weeklyReport}</Text>
+                </View>
+              ) : (
+                <Pressable style={[styles.reportCard, { backgroundColor: c.accentSubtle, borderColor: c.border }]} onPress={handleViewReport} disabled={reportLoading}>
+                  <Text style={[styles.reportTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>Your Dream Week</Text>
+                  {reportLoading ? (
+                    <ActivityIndicator color={c.accent} style={{ marginVertical: spacing.sm }} />
+                  ) : (
+                    <Text style={[styles.reportSubtitle, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>Tap to generate an AI summary of your dream patterns</Text>
+                  )}
+                </Pressable>
+              )}
+            </>
           )}
-        </FadeInView>
+        </Section>
+
+        {/* Pattern Alerts — Collapsible */}
+        <Section icon={<AlertCircle size={18} color={c.accent} strokeWidth={1.5} />} title="Pattern Alerts" delay={500}>
+          <Pressable
+            onPress={() => setAlertsExpanded((prev) => !prev)}
+            style={({ pressed }) => [styles.collapsibleHeader, { backgroundColor: c.surface, borderColor: c.border }, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={[styles.collapsibleSummary, { color: c.textSecondary, fontFamily: theme.fonts.body }]}>
+              {patternAlerts.length > 0
+                ? `${patternAlerts.length} pattern${patternAlerts.length !== 1 ? 's' : ''} detected`
+                : totalDreams < 3 ? 'Record at least 3 dreams to detect patterns' : 'No patterns detected yet'}
+            </Text>
+            {alertsExpanded
+              ? <ChevronDown size={16} color={c.textTertiary} strokeWidth={1.5} />
+              : <ChevronRight size={16} color={c.textTertiary} strokeWidth={1.5} />}
+          </Pressable>
+          {alertsExpanded && (
+            <>
+              {patternAlerts.length > 0 ? (
+                <View style={styles.alertsList}>{patternAlerts.map((alert) => <PatternAlertCard key={alert.id} alert={alert} />)}</View>
+              ) : (
+                <Text style={[styles.placeholder, { color: c.textTertiary, fontFamily: theme.fonts.body }]}>
+                  {totalDreams < 3 ? 'Record at least 3 dreams to start detecting patterns' : "We'll alert you when we detect recurring patterns"}
+                </Text>
+              )}
+            </>
+          )}
+        </Section>
       </ScrollView>
 
       <AlertModal visible={alertVisible} config={alertConfig} onDismiss={() => setAlertVisible(false)} />
@@ -468,17 +500,12 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: fs.heading, paddingTop: spacing.md, marginBottom: spacing.lg },
 
   // Health score card
-  scoreCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.lg, marginBottom: spacing.lg },
+  scoreCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.lg, marginBottom: spacing.xl },
   scoreRing: { width: 100, height: 100, alignItems: 'center', justifyContent: 'center' },
   scoreValue: { position: 'absolute', fontSize: fs.title },
   scoreInfo: { flex: 1, gap: spacing.xs },
   scoreLabel: { fontSize: fs.subhead },
   scoreDescription: { fontSize: fs.caption },
-
-  // Section shell
-  section: { marginBottom: spacing.lg, gap: spacing.md },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  sectionTitle: { fontSize: fs.subhead },
 
   // Emotional Landscape
   emptyCard: { borderRadius: radius.md, borderWidth: 1, padding: spacing.lg },
@@ -516,6 +543,10 @@ const styles = StyleSheet.create({
 
   // Symbols
   symbolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+
+  // Collapsible header
+  collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  collapsibleSummary: { flex: 1, fontSize: fs.caption },
 
   // Connections
   connectionCard: { borderRadius: radius.md, borderWidth: 1, padding: spacing.md, gap: spacing.sm },

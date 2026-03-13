@@ -6,7 +6,7 @@ import FadeInView from '@/components/FadeInView';
 import CalendarStrip from '@/components/CalendarStrip';
 import { isToday, isYesterday, isThisWeek, isThisMonth, isSameDay } from 'date-fns';
 import { useTheme } from '@/lib/ThemeContext';
-import { spacing, radius, fontSize as fs, SCREEN_PADDING } from '@/lib/theme';
+import { spacing, radius, fontSize as fs, SCREEN_PADDING, elevation } from '@/lib/theme';
 import { useAppStore } from '@/lib/store';
 import DreamCard from '@/components/DreamCard';
 import GlowOrb from '@/components/GlowOrb';
@@ -203,6 +203,13 @@ export default function DreamsScreen() {
         </View>
       </FadeInView>
 
+      {/* Calendar interaction hint */}
+      {dreams.length > 0 && (
+        <Text style={[styles.calendarHint, { color: c.textTertiary, fontFamily: theme.fonts.caption }]}>
+          Swipe to change week · Tap to expand
+        </Text>
+      )}
+
       {/* Content */}
       {filteredDreams.length > 0 ? (
         <SectionList
@@ -239,7 +246,9 @@ export default function DreamsScreen() {
         />
       ) : (
         <View style={styles.empty}>
-          <GlowOrb size={80} breathingDuration={4000} />
+          <FadeInView variant="bloom" delay={0}>
+            <GlowOrb size={80} breathingDuration={4000} />
+          </FadeInView>
           <Text style={[styles.emptyTitle, { color: c.text, fontFamily: theme.fonts.heading }]}>
             {searchQuery ? 'No dreams found' : 'No dreams yet'}
           </Text>
@@ -264,7 +273,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  title: { fontSize: fs.heading },
+  title: { fontSize: fs.title },
   countBadge: {
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 2,
@@ -290,6 +299,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_PADDING,
     marginBottom: spacing.md,
   },
+  calendarHint: {
+    fontSize: fs.micro,
+    textAlign: 'center',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
   tabsRow: {
     flexDirection: 'row',
     gap: spacing.lg,
@@ -309,7 +324,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   sectionSeparator: { height: 0 },
-  separator: { height: spacing.md + 4 },
+  separator: { height: spacing.md },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingBottom: spacing.xxxl },
   emptyTitle: { fontSize: fs.subhead, marginTop: spacing.sm },
   emptySubtitle: { fontSize: fs.caption, textAlign: 'center' },
