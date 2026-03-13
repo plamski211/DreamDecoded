@@ -236,7 +236,6 @@ export default function ProfileScreen() {
                   <View style={[styles.themeAccentBar, { backgroundColor: t.colors.accent }]} />
                   <View style={styles.themeCardContent}>
                     <Text style={[styles.themeName, { color: t.colors.text, fontFamily: theme.fonts.caption }]}>{opt.name}</Text>
-                    <Text style={[styles.themeDescription, { color: t.colors.textTertiary, fontFamily: theme.fonts.caption }]}>{t.description}</Text>
                     {isActive && <Check size={14} color={c.accent} strokeWidth={2} />}
                   </View>
                 </Pressable>
@@ -324,7 +323,7 @@ const styles = StyleSheet.create({
   themeOptions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   themeCard: {
     flex: 1,
-    height: 84,
+    height: 72,
     borderRadius: radius.md,
     borderWidth: 1,
     overflow: 'hidden',
@@ -334,10 +333,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: spacing.xs,
   },
   themeName: { fontSize: fs.tiny },
-  themeDescription: { fontSize: fs.micro, textAlign: 'center' },
 
   // Settings groups
   settingsGroup: { marginBottom: spacing.lg },

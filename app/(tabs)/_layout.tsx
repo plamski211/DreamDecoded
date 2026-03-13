@@ -42,11 +42,6 @@ export default function TabLayout() {
               )}
             </View>
           ),
-          tabBarLabelStyle: {
-            fontFamily: theme.fonts.caption,
-            fontSize: 10,
-            marginTop: -2,
-          },
         }}
       />
       <Tabs.Screen
@@ -82,22 +77,21 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   orbContainer: {
-    width: 44,
-    height: 44,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
   },
   orb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
   orbGlow: {
     position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     opacity: 0.12,
   },
 });
